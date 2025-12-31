@@ -9,7 +9,7 @@ import holidays
 logger = logging.getLogger(__name__)
 
 
-def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds') -> pd.DataFrame:
+def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds', reference_date: str = '2024-11-19') -> pd.DataFrame:
     """
     Build calendar features for given dates.
     
@@ -19,6 +19,8 @@ def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds') -> pd.DataFram
         DataFrame with date column
     ds_col : str
         Name of date column
+    reference_date : str
+        Reference date for trend calculation (default: first date in training data)
         
     Returns
     -------
@@ -26,6 +28,10 @@ def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds') -> pd.DataFram
         DataFrame with calendar features added
     """
     df = df.copy()
+    
+    # Trend feature (days since reference date)
+    ref_date = pd.to_datetime(reference_date)
+    df['days_since_start'] = (df[ds_col] - ref_date).dt.days
     
     # Basic date features
     df['dow'] = df[ds_col].dt.dayofweek  # Monday=0, Sunday=6
