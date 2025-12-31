@@ -3,6 +3,7 @@
 import argparse
 import logging
 import sys
+import json
 from pathlib import Path
 from datetime import datetime
 
@@ -155,6 +156,112 @@ def run_pipeline(
         logger.info("  - outputs/forecasts/rollups_ordering.csv")
         logger.info("  - outputs/forecasts/rollups_scheduling.csv")
         
+        # Minimal run log for traceability (non-blocking)
+        try:
+            Path("outputs/reports").mkdir(parents=True, exist_ok=True)
+            run_log = {
+                "run_utc": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "data_through": str(df_forecast["data_through"].iloc[0]) if "data_through" in df_forecast.columns and len(df_forecast) else None,
+                "forecast_rows": int(len(df_forecast)),
+                "forecast_total_p50": float(df_forecast["p50"].sum()) if len(df_forecast) else None,
+                "forecast_closed_days": int(df_forecast["is_closed"].sum()) if "is_closed" in df_forecast.columns and len(df_forecast) else None,
+                "outputs": {
+                    "forecast_daily_2026": "outputs/forecasts/forecast_daily_2026.csv",
+                    "rollups_ordering": "outputs/forecasts/rollups_ordering.csv",
+                    "rollups_scheduling": "outputs/forecasts/rollups_scheduling.csv",
+                    "ensemble_weights": "outputs/models/ensemble_weights.csv",
+                },
+                "backtests_ran": bool(run_backtests),
+            }
+            with open("outputs/reports/run_log.json", "w", encoding="utf-8") as f:
+                json.dump(run_log, f, indent=2)
+            logger.info("  ✓ Wrote outputs/reports/run_log.json")
+        except Exception as e:
+            logger.warning(f"Could not write run_log.json: {e}")
+
+        # Optional: compute ensemble backtest metrics (requires backtests outputs)
+        if run_backtests:
+            try:
+                import pandas as pd
+                import numpy as np
+                from forecasting.backtest.rolling_origin import assign_horizon_bucket, compute_metrics
+
+                # Load learned weights
+                df_w = pd.read_csv("outputs/models/ensemble_weights.csv")
+                weights_by_bucket = {
+                    b: dict(zip(g["model_name"], g["weight"]))
+                    for b, g in df_w.groupby("horizon_bucket")
+                }
+
+                # Load backtest predictions (filtering baseline file by model_name)
+                backtest_preds_paths = {
+                    "seasonal_naive_weekly": "outputs/backtests/preds_baselines.parquet",
+                    "weekday_rolling_median": "outputs/backtests/preds_baselines.parquet",
+                    "gbm_short": "outputs/backtests/preds_gbm_short.parquet",
+                    "gbm_long": "outputs/backtests/preds_gbm_long.parquet",
+                }
+
+                frames = []
+                for model_name, path in backtest_preds_paths.items():
+                    if not Path(path).exists():
+                        continue
+                    df = pd.read_parquet(path)
+                    if len(df) == 0:
+                        continue
+                    if "model_name" in df.columns:
+                        df = df[df["model_name"] == model_name].copy()
+                        if len(df) == 0:
+                            continue
+                    else:
+                        df = df.copy()
+                        df["model_name"] = model_name
+                    frames.append(df)
+
+                df_all = pd.concat(frames, ignore_index=True)
+                if "horizon_bucket" not in df_all.columns:
+                    df_all["horizon_bucket"] = df_all["horizon"].apply(assign_horizon_bucket)
+
+                # Blend p50 per (cutoff_date, target_date) within each bucket
+                ens_rows = []
+                for bucket, df_b in df_all.groupby("horizon_bucket"):
+                    w = weights_by_bucket.get(bucket, {})
+                    df_p = df_b.pivot_table(
+                        index=["cutoff_date", "target_date", "horizon", "y"],
+                        columns="model_name",
+                        values="p50",
+                        aggfunc="first"
+                    )
+
+                    for (cutoff_date, target_date, horizon, y), row in df_p.iterrows():
+                        avail = row.dropna()
+                        if len(avail) == 0:
+                            continue
+                        raw_w = np.array([w.get(m, 0.0) for m in avail.index], dtype=float)
+                        if raw_w.sum() <= 0:
+                            norm_w = np.ones(len(avail), dtype=float) / len(avail)
+                        else:
+                            norm_w = raw_w / raw_w.sum()
+                        p50 = float((avail.values * norm_w).sum())
+                        ens_rows.append({
+                            "cutoff_date": cutoff_date,
+                            "target_date": target_date,
+                            "horizon": int(horizon),
+                            "y": float(y),
+                            "p50": p50,
+                            "horizon_bucket": bucket,
+                            "model_name": "ensemble",
+                        })
+
+                df_ens = pd.DataFrame(ens_rows)
+                df_metrics = compute_metrics(df_ens)
+                df_metrics["model_name"] = "ensemble"
+
+                Path("outputs/backtests").mkdir(parents=True, exist_ok=True)
+                df_metrics.to_csv("outputs/backtests/metrics_ensemble.csv", index=False)
+                logger.info("  ✓ Wrote outputs/backtests/metrics_ensemble.csv")
+            except Exception as e:
+                logger.warning(f"Could not compute metrics_ensemble.csv: {e}")
+        
     except Exception as e:
         logger.error(f"\n✗ PIPELINE FAILED: {e}")
         import traceback
@@ -184,8 +291,7 @@ def main():
     parser.add_argument(
         '--skip-chronos',
         action='store_true',
-        default=True,
-        help='Skip Chronos-2 integration (default: True)'
+        help='Skip Chronos-2 integration (default: False, Chronos enabled)'
     )
     
     parser.add_argument(

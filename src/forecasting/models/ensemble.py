@@ -52,14 +52,26 @@ class EnsembleModel:
             if not Path(path).exists():
                 logger.warning(f"Backtest predictions not found: {path}")
                 continue
-            
+
             df = pd.read_parquet(path)
-            
+
             if len(df) == 0:
                 logger.warning(f"Empty backtest predictions: {model_name}")
                 continue
-            
-            df['model_name'] = model_name
+
+            # IMPORTANT:
+            # - If the parquet already contains model_name (e.g., preds_baselines.parquet),
+            #   filter to the requested model_name rather than overwriting.
+            # - If model_name is missing, inject it.
+            if 'model_name' in df.columns:
+                df = df[df['model_name'] == model_name].copy()
+                if len(df) == 0:
+                    logger.warning(f"No rows for model_name={model_name} in {path}")
+                    continue
+            else:
+                df = df.copy()
+                df['model_name'] = model_name
+
             all_preds.append(df)
         
         if len(all_preds) == 0:
@@ -203,17 +215,24 @@ class EnsembleModel:
             weights = self.weights.get(bucket, {m: 1.0 / len(self.models) for m in self.models})
             
             # Blend predictions
-            p50_blend = 0
-            p80_blend = 0
-            p90_blend = 0
-            
-            for model_name in df_date['model_name']:
-                model_row = df_date[df_date['model_name'] == model_name].iloc[0]
-                w = weights.get(model_name, 0)
-                
-                p50_blend += w * model_row['p50']
-                p80_blend += w * model_row['p80']
-                p90_blend += w * model_row['p90']
+            # - Aggregate duplicates (defensive)
+            # - Renormalize weights over models that are actually present for this target_date
+            df_models = (
+                df_date.groupby('model_name', as_index=False)[['p50', 'p80', 'p90']]
+                .mean()
+            )
+            available_models = df_models['model_name'].tolist()
+
+            raw_w = np.array([weights.get(m, 0.0) for m in available_models], dtype=float)
+            if raw_w.sum() <= 0:
+                # Fallback: equal weights across available models
+                norm_w = np.ones(len(available_models), dtype=float) / max(1, len(available_models))
+            else:
+                norm_w = raw_w / raw_w.sum()
+
+            p50_blend = float((df_models['p50'].values * norm_w).sum())
+            p80_blend = float((df_models['p80'].values * norm_w).sum())
+            p90_blend = float((df_models['p90'].values * norm_w).sum())
             
             ensemble_preds.append({
                 'target_date': target_date,

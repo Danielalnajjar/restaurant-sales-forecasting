@@ -9,6 +9,7 @@ from datetime import datetime
 from forecasting.models.gbm_short import GBMShortHorizon
 from forecasting.models.gbm_long import GBMLongHorizon
 from forecasting.models.chronos2 import Chronos2Model
+from forecasting.models.baselines import SeasonalNaiveWeekly, WeekdayRollingMedian
 from forecasting.models.ensemble import EnsembleModel
 from forecasting.features.feature_builders import build_features_short, build_features_long
 
@@ -140,6 +141,26 @@ def generate_2026_forecast(
     # Generate model predictions
     model_predictions = {}
     
+    # Ensure datetime types
+    df_sales['ds'] = pd.to_datetime(df_sales['ds'])
+    df_hours_2026['ds'] = pd.to_datetime(df_hours_2026['ds'])
+
+    # Baselines (provide full 2026 coverage so ensemble weights apply correctly)
+    logger.info("Generating baseline predictions...")
+    target_dates = df_hours_2026['ds'].sort_values().tolist()
+
+    sn = SeasonalNaiveWeekly()
+    sn.fit(df_sales)
+    preds_sn = sn.predict(target_dates)
+    preds_sn['horizon'] = (preds_sn['target_date'] - issue_date).dt.days
+    model_predictions['seasonal_naive_weekly'] = preds_sn
+
+    wm = WeekdayRollingMedian()
+    wm.fit(df_sales)
+    preds_wm = wm.predict(target_dates)
+    preds_wm['horizon'] = (preds_wm['target_date'] - issue_date).dt.days
+    model_predictions['weekday_rolling_median'] = preds_wm
+    
     # GBM Short (H=1-14)
     logger.info("Generating GBM short predictions...")
     df_inf_short = pd.read_parquet(inf_short_path)
@@ -234,31 +255,68 @@ def generate_2026_forecast(
     df_forecast.to_csv(output_daily_path, index=False)
     logger.info(f"Saved daily forecast to {output_daily_path} ({len(df_forecast)} rows)")
     
-    # Generate rollups
+    # Generate rollups (aligned to operations)
     logger.info("Generating rollups...")
-    
-    # Ordering rollup (weekly)
-    df_forecast['week'] = pd.to_datetime(df_forecast['ds']).dt.to_period('W').apply(lambda r: r.start_time)
-    df_ordering = df_forecast.groupby('week').agg({
-        'p50': 'sum',
-        'p80': 'sum',
-        'p90': 'sum',
-    }).reset_index()
-    df_ordering = df_ordering.rename(columns={'week': 'week_start'})
-    
+
+    snapshot_date = datetime.now().strftime('%Y-%m-%d')
+
+    df_forecast_roll = df_forecast.copy()
+    df_forecast_roll['ds'] = pd.to_datetime(df_forecast_roll['ds'])
+    df_forecast_roll = df_forecast_roll.sort_values('ds')
+
+    forecast_end = df_forecast_roll['ds'].max()
+
+    def sum_window(start: pd.Timestamp, end: pd.Timestamp) -> dict:
+        end_capped = min(end, forecast_end)
+        mask = (df_forecast_roll['ds'] >= start) & (df_forecast_roll['ds'] <= end_capped)
+        totals = df_forecast_roll.loc[mask, ['p50', 'p80', 'p90']].sum()
+        notes = []
+        if end_capped < end:
+            notes.append("window_truncated_at_forecast_end")
+        return {
+            'snapshot_date': snapshot_date,
+            'coverage_start': start.strftime('%Y-%m-%d'),
+            'coverage_end': end_capped.strftime('%Y-%m-%d'),
+            'p50': float(totals['p50']),
+            'p80': float(totals['p80']),
+            'p90': float(totals['p90']),
+            'notes': ";".join(notes) if notes else ""
+        }
+
+    # Ordering rollups:
+    # - Sunday order covers Sunday→Saturday (7 days)
+    # - Wednesday order covers Wednesday→next Wednesday (8 days, inclusive)
+    ordering_rows = []
+
+    # Sundays (dayofweek: Mon=0 ... Sun=6)
+    sunday_starts = df_forecast_roll[df_forecast_roll['ds'].dt.dayofweek == 6]['ds'].tolist()
+    for start in sunday_starts:
+        row = sum_window(start, start + pd.Timedelta(days=6))
+        row['notes'] = (row['notes'] + (";" if row['notes'] else "") + "order_cycle=sun_sat")
+        ordering_rows.append(row)
+
+    # Wednesdays (dayofweek=2)
+    wed_starts = df_forecast_roll[df_forecast_roll['ds'].dt.dayofweek == 2]['ds'].tolist()
+    for start in wed_starts:
+        row = sum_window(start, start + pd.Timedelta(days=7))
+        row['notes'] = (row['notes'] + (";" if row['notes'] else "") + "order_cycle=wed_wed")
+        ordering_rows.append(row)
+
+    df_ordering = pd.DataFrame(ordering_rows).sort_values(['coverage_start', 'notes'])
     Path(output_ordering_path).parent.mkdir(parents=True, exist_ok=True)
     df_ordering.to_csv(output_ordering_path, index=False)
     logger.info(f"Saved ordering rollup to {output_ordering_path}")
-    
-    # Scheduling rollup (monthly)
-    df_forecast['month'] = pd.to_datetime(df_forecast['ds']).dt.to_period('M').apply(lambda r: r.start_time)
-    df_scheduling = df_forecast.groupby('month').agg({
-        'p50': 'sum',
-        'p80': 'sum',
-        'p90': 'sum',
-    }).reset_index()
-    df_scheduling = df_scheduling.rename(columns={'month': 'month_start'})
-    
+
+    # Scheduling rollups:
+    # - Schedule week is Wednesday→Tuesday (7 days inclusive)
+    scheduling_rows = []
+    sched_starts = wed_starts  # Wednesday starts
+    for start in sched_starts:
+        row = sum_window(start, start + pd.Timedelta(days=6))
+        row['notes'] = (row['notes'] + (";" if row['notes'] else "") + "schedule_week=wed_tue")
+        scheduling_rows.append(row)
+
+    df_scheduling = pd.DataFrame(scheduling_rows).sort_values(['coverage_start'])
     Path(output_scheduling_path).parent.mkdir(parents=True, exist_ok=True)
     df_scheduling.to_csv(output_scheduling_path, index=False)
     logger.info(f"Saved scheduling rollup to {output_scheduling_path}")

@@ -266,6 +266,12 @@ def build_events_daily_2026(
             fill_value=0
         ).reset_index()
         family_pivot.columns = ['ds'] + [f'event_family__{col}' for col in family_pivot.columns[1:]]
+        
+        # Add missing families from history (set to 0)
+        for fam in top_families:
+            col_name = f'event_family__{fam}'
+            if col_name not in family_pivot.columns:
+                family_pivot[col_name] = 0
     else:
         family_pivot = all_dates.copy()
         for fam in top_families:

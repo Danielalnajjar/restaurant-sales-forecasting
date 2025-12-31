@@ -1,0 +1,14 @@
+{
+  "run_utc": "2025-12-31T22:50:45Z",
+  "data_through": "2025-12-22",
+  "forecast_rows": 365,
+  "forecast_total_p50": 978385.2840381559,
+  "forecast_closed_days": 3,
+  "outputs": {
+    "forecast_daily_2026": "outputs/forecasts/forecast_daily_2026.csv",
+    "rollups_ordering": "outputs/forecasts/rollups_ordering.csv",
+    "rollups_scheduling": "outputs/forecasts/rollups_scheduling.csv",
+    "ensemble_weights": "outputs/models/ensemble_weights.csv"
+  },
+  "backtests_ran": false
+}
