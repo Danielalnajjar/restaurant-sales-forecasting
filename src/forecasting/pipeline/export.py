@@ -8,6 +8,7 @@ from datetime import datetime
 
 from forecasting.models.gbm_short import GBMShortHorizon
 from forecasting.models.gbm_long import GBMLongHorizon
+from forecasting.models.chronos2 import Chronos2Model
 from forecasting.models.ensemble import EnsembleModel
 from forecasting.features.feature_builders import build_features_short, build_features_long
 
@@ -168,6 +169,28 @@ def generate_2026_forecast(
         preds_long = model_long.predict(df_inf_long)
         preds_long['horizon'] = (preds_long['target_date'] - issue_date).dt.days
         model_predictions['gbm_long'] = preds_long
+    
+    # Chronos-2 (H=1-90)
+    logger.info("Generating Chronos-2 predictions...")
+    try:
+        model_chronos = Chronos2Model(prediction_length=90)
+        model_chronos.fit(df_sales)
+        
+        if model_chronos.model is not None:
+            preds_chronos = model_chronos.predict()
+            
+            if len(preds_chronos) > 0:
+                preds_chronos['horizon'] = (preds_chronos['target_date'] - issue_date).dt.days
+                # Only use Chronos for 2026 dates
+                preds_chronos = preds_chronos[preds_chronos['target_date'].dt.year == 2026]
+                model_predictions['chronos2'] = preds_chronos
+                logger.info(f"Chronos-2 generated {len(preds_chronos)} predictions for 2026")
+            else:
+                logger.warning("Chronos-2 generated no predictions")
+        else:
+            logger.warning("Chronos-2 model not available")
+    except Exception as e:
+        logger.warning(f"Chronos-2 prediction failed: {e}")
     
     # Load ensemble and blend
     logger.info("Blending with ensemble weights...")
