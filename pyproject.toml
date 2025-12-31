@@ -1,0 +1,25 @@
+[project]
+name = "forecasting"
+version = "0.1.0"
+description = "Daily sales forecasting system for restaurant operations"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "pyarrow>=12.0.0",
+    "pyyaml>=6.0",
+    "scikit-learn>=1.3.0",
+    "lightgbm>=4.0.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "holidays>=0.35",
+]
+
+[project.optional-dependencies]
+chronos = [
+    "autogluon.timeseries>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,48 @@
+event_family_ascii,event_family,category,start_2025,end_2025,parse_2025,start_2026,end_2026,parse_2026,status_2026,proximity,confidence_bucket,date_shift_display
+ces_consumer_technology_association,CES (Consumer Technology Association),Conventions,2025-01-07,2025-01-10,exact_range,2026-01-06,2026-01-09,exact_range,Confirmed,Strip,high,-1 days
+cosmoprof_north_america,Cosmoprof North America,Conventions,2025-07-15,2025-07-17,exact_range,2026-07-13,2026-07-15,exact_range,Confirmed,Strip,high,-2 days
+las_vegas_winter_market_home_furnishings,Las Vegas Winter Market (Home Furnishings),Conventions,2025-01-26,2025-01-30,exact_range,2026-01-25,2026-01-29,exact_range,Confirmed,Near-Strip,high,-1 days
+mjbizcon_2026_cannabis_expo,MJBizCon 2026 (Cannabis Expo),Conventions,2025-12-02,2025-12-05,exact_range,2026-12-01,2026-12-04,exact_range,Confirmed,Strip,high,-1 days
+sema_show_2026_auto_aftermarket,SEMA Show 2026 (Auto Aftermarket),Conventions,2025-11-04,2025-11-07,exact_range,2026-11-03,2026-11-06,exact_range,Confirmed,Strip,high,-1 days
+shot_show_2026_shooting_hunting_trade,SHOT Show 2026 (Shooting/ Hunting Trade),Conventions,2025-01-21,2025-01-24,exact_range,2026-01-20,2026-01-23,exact_range,Confirmed,Strip,high,-1 days
+superzoo,SuperZoo,Conventions,2025-08-13,2025-08-15,exact_range,2026-08-12,2026-08-14,exact_range,Confirmed,South Strip,high,-1 days
+world_of_concrete_2026,World of Concrete 2026,Conventions,2025-01-21,2025-01-23,exact_range,2026-01-20,2026-01-22,exact_range,Confirmed,Strip,high,-1 days
+electric_daisy_carnival_edc_las_vegas,Electric Daisy Carnival (EDC) Las Vegas,Festivals,2025-05-16,2025-05-18,exact_range,2026-05-15,2026-05-17,exact_range,Confirmed,Greater Vegas,high,-1 days
+july_4th_fireworks,July 4th Fireworks,Festivals,2025-07-04,2025-07-04,exact_day,2026-07-04,2026-07-04,exact_day,Confirmed,Strip,high,+0 days
+new_year_s_eve,New Year's Eve,Festivals,2025-12-31,2025-12-31,exact_day,2026-12-31,2026-12-31,exact_day,Confirmed,Strip/Downtown,high,+0 days
+new_year_s_eve_america_s_party,"New Year's Eve ""America's Party""",Festivals,2025-12-31,2026-01-01,exact_range,2026-12-31,2026-12-31,exact_day,Confirmed,Strip,high,+0 days
+christmas_day,Christmas Day,Holidays,2025-12-25,2025-12-25,exact_day,2026-12-25,2026-12-25,exact_day,Religious (Christian),Unknown,high,+0 days
+christmas_new_year_week,Christmas/New Year Week,Holidays,2025-12-22,2025-12-22,exact_day,2027-12-19,2027-01-04,exact_range_cross_month,Holiday,Unknown,high,+13 days
+cincode_mayo,Cincode Mayo,Holidays,2025-05-05,2025-05-05,exact_day,2026-05-05,2026-05-05,exact_day,Cultural (Mexico/US),Unknown,high,+0 days
+easter_sunday_2026,Easter Sunday 2026,Holidays,2025-04-20,2025-04-20,exact_day,2026-04-05,2026-04-05,exact_day,Religious (Christian),Unknown,high,-15 days
+labor_day,Labor Day,Holidays,2025-09-01,2025-09-01,exact_day,2026-09-07,2026-09-07,exact_day,Federal,Unknown,high,+6 days
+martin_luther_king_jr_day,Martin Luther King Jr. Day,Holidays,2025-01-20,2025-01-20,exact_day,2026-01-19,2026-01-19,exact_day,U.S. Federal,Unknown,high,-1 days
+memorial_day,Memorial Day,Holidays,2025-05-24,2025-05-26,exact_range,2026-05-25,2026-05-25,exact_day,U.S. Federal,Unknown,high,+1 days
+new_year_s_day_2026,New Year's Day 2026,Holidays,2025-01-01,2025-01-01,exact_day,2026-01-01,2026-01-01,exact_day,U.S. Federal,Unknown,high,+0 days
+presidents_day,Presidents' Day,Holidays,2025-02-17,2025-02-17,exact_day,2026-02-16,2026-02-16,exact_day,U.S. Federal,Unknown,high,-1 days
+thanksgiving_week,Thanksgiving Week,Holidays,2025-11-23,2025-11-30,exact_range,2026-11-21,2026-11-29,exact_range_cross_month,Holiday,Unknown,high,-2 days
+veterans_day,Veterans Day,Holidays,2025-11-11,2025-11-11,exact_day,2026-11-11,2026-11-11,exact_day,U.S. Federal,Unknown,high,+0 days
+formula_1_las_vegas_grand_prix,Formula 1 Las Vegas Grand Prix,Sports,2025-11-20,2025-11-20,exact_day,2026-11-19,2026-11-21,exact_range,Confirmed,Strip,high,-1 days
+nascar_pennzoil_400_weekend,NASCAR Pennzoil 400 Weekend,Sports,2025-03-16,2025-03-16,exact_day,2026-03-15,2026-03-15,exact_day,Confirmed,Greater Vegas,high,-2 days
+national_finals_rodeo_nfr_2026,National Finals Rodeo (NFR) 2026,Sports,2025-12-04,2025-12-04,exact_day,2026-12-03,2026-12-12,exact_range,Confirmed,Near-Strip,high,-1 days
+rugby_league_las_vegas,Rugby League Las Vegas,Sports,2025-03-01,2025-03-01,exact_day,2026-02-28,2026-02-28,exact_day,Confirmed,Strip,high,-1 days
+asd_market_week_spring,ASD Market Week (Spring),Conventions,2025-03-09,2025-03-12,exact_range,2026-03-17,2026-03-19,exact_range,Confirmed,Strip,medium,+8 days
+global_gaming_expo_g2e_2026,Global Gaming Expo (G2E) 2026,Conventions,2025-10-07,2025-10-09,exact_range,2026-09-28,2026-10-01,exact_range_cross_month,Confirmed,Strip,medium,-9 days
+isc_west,ISC West,Conventions,2025-04-01,2025-04-04,exact_range,2026-03-23,2026-03-27,exact_range,Confirmed,Critical (Direct),medium,-9 days
+jck_las_vegas,JCK Las Vegas,Conventions,2025-06-06,2025-06-09,exact_range,2026-05-29,2026-06-01,exact_range_cross_month,Confirmed,Strip,medium,-8 days
+magic_las_vegas_august,MAGIC Las Vegas (August),Conventions,2025-08-18,2025-08-20,exact_range,2026-08-10,2026-08-12,exact_range,Confirmed,Strip,medium,-8 days
+magic_las_vegas_february,MAGIC Las Vegas (February),Conventions,2025-02-10,2025-02-12,exact_range,2026-02-17,2026-02-19,exact_range,Confirmed,Strip,medium,+7 days
+nab_show_2026_broadcasters,NAB Show 2026 (Broadcasters),Conventions,2025-04-06,2025-04-09,exact_range,2026-04-18,2026-04-22,exact_range,Confirmed,Strip,medium,+12 days
+chinese_new_year_2026_year_of_the_horse,Chinese New Year 2026 (Year of the Horse),Festivals,2025-02-10,2025-02-10,exact_day,2026-02-17,2026-02-21,exact_range,Confirmed,Strip,medium,+7 days
+dia_de_los_muertos,Día de los Muertos,Festivals,2025-11-01,2025-11-02,exact_range,2026-10-31,2026-11-02,exact_range_cross_month,Expected,Greater Vegas,medium,-1 days
+las_vegas_pride_parade,Las Vegas PRIDE Parade,Festivals,2025-10-10,2025-10-10,exact_day,2026-10-09,2026-10-09,exact_day,Expected,Downtown,medium,-1 days
+iheartradio_music_festival,iHeartRadio Music Festival,Festivals,2025-09-19,2025-09-20,exact_range,2026-09-18,2026-09-19,exact_range,Expected,Strip,medium,-1 days
+las_vegas_bowl,Las Vegas Bowl,Sports,2025-12-31,2025-12-31,exact_day,2026-12-30,2026-12-31,exact_range,Expected,Strip,medium,-1 days
+backstreet_boys_residency,Backstreet Boys Residency,Concerts,2025-12-26,2026-02-15,exact_range,,,unparsed,Confirmed,Strip,low,N/A
+eagles_residency,Eagles Residency,Concerts,,,unparsed,2026-03-28,2026-03-28,exact_day,Confirmed,Strip,low,N/A
+zac_brown_band_residency,Zac Brown Band Residency,Concerts,,,unparsed,2026-01-17,2026-01-17,exact_day,Confirmed,Strip,low,N/A
+asd_market_week_summer,ASD Market Week (Summer),Conventions,2025-08-03,2025-08-06,exact_range,2026-08-25,2026-08-27,exact_range,Confirmed,Strip,low,+22 days
+las_vegas_pride,Las Vegas Pride,Festivals,2025-10-18,2025-10-18,exact_day,2026-10-09,2026-10-11,exact_range,Expected,Near-Strip,low,-9 days
+when_we_were_young,When We Were Young,Festivals,2025-10-18,2025-10-19,exact_range,,,unparsed,Expected,Unknown,low,N/A
+google_cloud_next_2026,Google Cloud Next 2026,Private,2025-04-09,2025-04-11,exact_range,2026-04-22,2026-04-24,exact_range,Listed,Unknown,low,+13 days
+oracle_cloudworld,Oracle CloudWorld,Private,2025-10-13,2025-10-16,exact_range,,,unparsed,Listed,Unknown,low,N/A
