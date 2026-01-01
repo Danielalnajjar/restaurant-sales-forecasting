@@ -1,29 +1,29 @@
 # Event Uplift Priors Report
 
-Generated: 2025-12-31 17:48:58
+Generated: 2026-01-01 16:12:18
 
 ## Summary
 
 - **Total Event Families**: 47
-- **High Confidence**: 2
+- **High Confidence**: 3
 - **Medium Confidence**: 22
-- **Low Confidence**: 17
-- **Missing/No Baseline**: 6
+- **Low Confidence**: 18
+- **Missing/No Baseline**: 4
 
 ## Top 10 Positive Uplift Events (Shrunk)
 
 | Event Family | Raw Uplift | Shrunk Uplift | Days | Confidence |
 |--------------|------------|---------------|------|------------|
-| las_vegas_bowl | 2.744 | 1.159 | 1 | low |
-| new_year_s_eve | 2.744 | 1.159 | 1 | low |
+| backstreet_boys_residency | 2.509 | 1.566 | 6 | high |
 | memorial_day | 1.654 | 1.151 | 3 | medium |
 | thanksgiving_week | 1.348 | 1.143 | 7 | high |
+| las_vegas_bowl | 2.545 | 1.140 | 1 | low |
+| new_year_s_eve | 2.545 | 1.140 | 1 | low |
+| new_year_s_eve_america_s_party | 2.545 | 1.140 | 1 | low |
 | presidents_day | 2.052 | 1.096 | 1 | low |
 | new_year_s_day_2026 | 2.027 | 1.093 | 1 | low |
 | christmas_new_year_week | 1.981 | 1.089 | 1 | low |
 | cosmoprof_north_america | 1.361 | 1.083 | 3 | medium |
-| google_cloud_next_2026 | 1.278 | 1.064 | 3 | medium |
-| ces_consumer_technology_association | 1.211 | 1.060 | 4 | medium |
 
 ## Top 10 Negative Uplift Events (Shrunk)
 
@@ -44,9 +44,7 @@ Generated: 2025-12-31 17:48:58
 
 | Event Family | Reason |
 |--------------|--------|
-| backstreet_boys_residency | missing |
 | christmas_day | no_baseline |
 | eagles_residency | missing |
 | easter_sunday_2026 | no_baseline |
-| new_year_s_eve_america_s_party | missing |
 | zac_brown_band_residency | missing |

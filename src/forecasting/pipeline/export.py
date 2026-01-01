@@ -229,89 +229,93 @@ def generate_2026_forecast(
     
     df_forecast = ensemble.predict(model_predictions)
     
-    # Apply OOF spike overlay (if backtest predictions available)
-    logger.info("Applying OOF spike overlay...")
-    try:
-        # Load backtest predictions for OOF calibration
-        df_preds_gbm = pd.read_parquet("outputs/backtests/preds_gbm_short.parquet")
-        
-        # Define spike flags
-        spike_flags = [
+    # Apply OOF spike overlay (DISABLED per ChatGPT 5.2 Pro audit recommendation)
+    # Reason: Schema mismatch causes silent failure + adds complexity
+    # Spike-day indicators + holiday distance features should be sufficient
+    # Can re-enable after fixing schema wiring if needed
+    logger.info("OOF spike overlay: DISABLED (using spike-day indicators instead)")
+    if False:  # DISABLED
+        try:
+            # Load backtest predictions for OOF calibration
+            df_preds_gbm = pd.read_parquet("outputs/backtests/preds_gbm_short.parquet")
+            
+            # Define spike flags
+            spike_flags = [
             'is_black_friday',
             'is_memorial_day',
             'is_memorial_day_weekend',
             'is_labor_day_weekend',
             'is_year_end_week'
-        ]
+            ]
+            
+            # Load spike flags from training data
+            df_train_short = pd.read_parquet("data/processed/train_short.parquet")
         
-        # Load spike flags from training data
-        df_train_short = pd.read_parquet("data/processed/train_short.parquet")
-        
-        # Get unique ds + spike flags from training data
-        spike_cols_available = [f for f in spike_flags if f in df_train_short.columns]
-        df_spike_history = df_train_short[['ds'] + spike_cols_available].drop_duplicates('ds')
-        
-        # Merge spike flags into actuals
-        df_actuals_with_flags = df_sales.merge(
-            df_spike_history,
-            on='ds',
-            how='left'
-        )
-        
-        # Fill missing spike flags with 0
-        for flag in spike_flags:
-            if flag in df_actuals_with_flags.columns:
-                df_actuals_with_flags[flag] = df_actuals_with_flags[flag].fillna(0).astype(int)
-            else:
-                df_actuals_with_flags[flag] = 0
-        
-        # Compute OOF multipliers
-        multipliers = compute_oof_spike_multipliers(
-            df_actuals=df_actuals_with_flags,
-            df_predictions=df_preds_gbm,
-            spike_flags=spike_flags,
-            shrinkage=0.3,
-            min_multiplier=0.8,
-            max_multiplier=1.8,
-            min_observations=2
-        )
-        
-        # Load spike flags for 2026 from inference data
-        df_inf_long = pd.read_parquet(inf_long_path)
-        spike_cols_2026 = [f for f in spike_flags if f in df_inf_long.columns]
-        df_spike_2026 = df_inf_long[['ds'] + spike_cols_2026].drop_duplicates('ds')
-        
-        # Merge spike flags into forecast
-        df_forecast = df_forecast.merge(df_spike_2026, on='ds', how='left')
-        
-        # Fill missing spike flags with 0
-        for flag in spike_flags:
-            if flag in df_forecast.columns:
-                df_forecast[flag] = df_forecast[flag].fillna(0).astype(int)
-            else:
-                df_forecast[flag] = 0
-        
-        # Apply overlay
-        df_forecast = apply_spike_overlay(
-            df_forecast,
-            multipliers,
-            spike_flags,
-            quantile_cols=['p50', 'p80', 'p90']
-        )
-        
-        # Generate overlay report
-        generate_oof_overlay_report(
-            df_actuals=df_actuals_with_flags,
-            df_predictions=df_preds_gbm,
-            multipliers=multipliers,
-            spike_flags=spike_flags,
-            output_path="outputs/reports/oof_spike_overlay_report.md"
-        )
-        
-        logger.info(f"OOF spike overlay applied with multipliers: {multipliers}")
-        
-    except Exception as e:
-        logger.warning(f"OOF spike overlay failed: {e}. Continuing without overlay.")
+            # Get unique ds + spike flags from training data
+            spike_cols_available = [f for f in spike_flags if f in df_train_short.columns]
+            df_spike_history = df_train_short[['ds'] + spike_cols_available].drop_duplicates('ds')
+            
+            # Merge spike flags into actuals
+            df_actuals_with_flags = df_sales.merge(
+                df_spike_history,
+                on='ds',
+                how='left'
+            )
+            
+            # Fill missing spike flags with 0
+            for flag in spike_flags:
+                if flag in df_actuals_with_flags.columns:
+                    df_actuals_with_flags[flag] = df_actuals_with_flags[flag].fillna(0).astype(int)
+                else:
+                    df_actuals_with_flags[flag] = 0
+            
+            # Compute OOF multipliers
+            multipliers = compute_oof_spike_multipliers(
+                df_actuals=df_actuals_with_flags,
+                df_predictions=df_preds_gbm,
+                spike_flags=spike_flags,
+                shrinkage=0.3,
+                min_multiplier=0.8,
+                max_multiplier=1.8,
+                min_observations=2
+            )
+            
+            # Load spike flags for 2026 from inference data
+            df_inf_long = pd.read_parquet(inf_long_path)
+            spike_cols_2026 = [f for f in spike_flags if f in df_inf_long.columns]
+            df_spike_2026 = df_inf_long[['ds'] + spike_cols_2026].drop_duplicates('ds')
+            
+            # Merge spike flags into forecast
+            df_forecast = df_forecast.merge(df_spike_2026, on='ds', how='left')
+            
+            # Fill missing spike flags with 0
+            for flag in spike_flags:
+                if flag in df_forecast.columns:
+                    df_forecast[flag] = df_forecast[flag].fillna(0).astype(int)
+                else:
+                    df_forecast[flag] = 0
+            
+            # Apply overlay
+            df_forecast = apply_spike_overlay(
+                df_forecast,
+                multipliers,
+                spike_flags,
+                quantile_cols=['p50', 'p80', 'p90']
+            )
+            
+            # Generate overlay report
+            generate_oof_overlay_report(
+                df_actuals=df_actuals_with_flags,
+                df_predictions=df_preds_gbm,
+                multipliers=multipliers,
+                spike_flags=spike_flags,
+                output_path="outputs/reports/oof_spike_overlay_report.md"
+            )
+            
+            logger.info(f"OOF spike overlay applied with multipliers: {multipliers}")
+            
+        except Exception as e:
+            logger.warning(f"OOF spike overlay failed: {e}. Continuing without overlay.")
     
     # Apply guardrails
     logger.info("Applying guardrails...")

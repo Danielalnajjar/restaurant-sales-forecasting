@@ -86,6 +86,9 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
                 min_until = min(min_until, days_diff)
             elif days_diff < 0:  # Past
                 min_since = min(min_since, -days_diff)
+            elif days_diff == 0:  # On the holiday itself
+                min_until = 0
+                min_since = 0
         df.loc[idx, 'days_until_thanksgiving'] = min(min_until, clamp_days)
         df.loc[idx, 'days_since_thanksgiving'] = min(min_since, clamp_days)
         
@@ -99,6 +102,9 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
                 min_until = min(min_until, days_diff)
             elif days_diff < 0:  # Past
                 min_since = min(min_since, -days_diff)
+            elif days_diff == 0:  # On the holiday itself
+                min_until = 0
+                min_since = 0
         df.loc[idx, 'days_until_christmas'] = min(min_until, clamp_days)
         df.loc[idx, 'days_since_christmas'] = min(min_since, clamp_days)
         
@@ -112,6 +118,9 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
                 min_until = min(min_until, days_diff)
             elif days_diff < 0:  # Past
                 min_since = min(min_since, -days_diff)
+            elif days_diff == 0:  # On the holiday itself
+                min_until = 0
+                min_since = 0
         df.loc[idx, 'days_until_new_year'] = min(min_until, clamp_days)
         df.loc[idx, 'days_since_new_year'] = min(min_since, clamp_days)
     
