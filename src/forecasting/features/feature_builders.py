@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 import holidays
 from forecasting.features.spike_days import add_spike_day_features
+from forecasting.features.holiday_distance import add_holiday_distance_features
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,10 @@ def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds', reference_date
     
     # Add spike-day features
     df = add_spike_day_features(df.rename(columns={ds_col: 'ds'}))
+    df = df.rename(columns={'ds': ds_col})
+    
+    # Add holiday distance features
+    df = add_holiday_distance_features(df.rename(columns={ds_col: 'ds'}), clamp_days=60)
     df = df.rename(columns={'ds': ds_col})
     
     return df
