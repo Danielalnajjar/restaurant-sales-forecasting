@@ -1,0 +1,12 @@
+spike_flag,uplift_multiplier,confidence,n_obs
+is_black_friday,1.6827412815590719,low,2
+is_thanksgiving_day,1.0,insufficient,0
+is_day_after_thanksgiving,1.6827412815590719,low,2
+is_memorial_day,1.0,insufficient,1
+is_memorial_day_weekend,1.372568515805408,medium,3
+is_labor_day,1.0,insufficient,1
+is_labor_day_weekend,1.2316286733521913,medium,3
+is_independence_day,1.0,insufficient,1
+is_christmas_eve,1.1525590191677861,low,2
+is_day_after_christmas,1.4913941794539838,low,2
+is_year_end_week,1.5240885865837672,high,12

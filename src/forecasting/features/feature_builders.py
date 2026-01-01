@@ -5,6 +5,7 @@ import numpy as np
 import logging
 from datetime import datetime
 import holidays
+from forecasting.features.spike_days import add_spike_day_features
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,10 @@ def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds', reference_date
     
     # New Year's Eve
     df['is_new_years_eve'] = ((df[ds_col].dt.month == 12) & (df[ds_col].dt.day == 31)).astype(int)
+    
+    # Add spike-day features
+    df = add_spike_day_features(df.rename(columns={ds_col: 'ds'}))
+    df = df.rename(columns={'ds': ds_col})
     
     return df
 
