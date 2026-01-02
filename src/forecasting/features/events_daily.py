@@ -209,17 +209,21 @@ def build_events_daily_2026(
         id_col='event_family_ascii'
     )
     
-    # Union both sources (keep all events)
-    df_daily = pd.concat([df_daily_exact, df_daily_recurring], ignore_index=True)
+    # Union both sources (keep all events for debugging/reporting)
+    df_daily_all = pd.concat([df_daily_exact, df_daily_recurring], ignore_index=True)
+    df_daily_all = df_daily_all.drop_duplicates(subset=['ds', 'event_family_ascii'])
     
-    # Remove duplicates (same event on same day)
-    df_daily = df_daily.drop_duplicates(subset=['ds', 'event_family_ascii'])
+    # FIXED V4.2: Use ONLY recurring events for model-facing aggregates
+    # This prevents distribution shift (training only saw recurring events)
+    # Exact events are kept in df_daily_all for reporting but not used for features
+    df_daily = df_daily_recurring.copy()
+    logger.info(f"Using {len(df_daily_recurring)} recurring event-days for aggregates (excluding {len(df_daily_exact)} exact events to match training)")
     
     # Create full date range
     all_dates = pd.DataFrame({'ds': pd.date_range(start=ds_min, end=ds_max, freq='D')})
     
-    # Aggregate features by date
-    logger.info("Aggregating event features by date")
+    # Aggregate features by date (FROM RECURRING ONLY)
+    logger.info("Aggregating event features by date (recurring events only)")
     
     # Total events active
     events_total = df_daily.groupby('ds').size().reset_index(name='events_active_total')

@@ -32,8 +32,13 @@ def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds', reference_date
     df = df.copy()
     
     # Trend feature (days since reference date)
+    # FIXED: Cap at 365 days to prevent extrapolated additive growth into 2026
+    # This prevents Q1 over-prediction by stopping the "ramp-up" from continuing
     ref_date = pd.to_datetime(reference_date)
-    df['days_since_start'] = (df[ds_col] - ref_date).dt.days
+    days_since = (df[ds_col] - ref_date).dt.days.clip(lower=0)
+    
+    df['days_since_open_capped_365'] = days_since.clip(upper=365)
+    df['days_since_open_log1p'] = np.log1p(days_since.clip(upper=365))
     
     # Basic date features
     df['dow'] = df[ds_col].dt.dayofweek  # Monday=0, Sunday=6

@@ -1,112 +1,160 @@
 """
-OOF-calibrated spike overlay for peak-day forecasting.
+Out-of-fold spike overlay for systematic spike-day correction.
 
-Computes calibration multipliers as y / yhat_p50 for spike days,
-using out-of-fold methodology to avoid double-counting.
+FIXED in V4.2 based on ChatGPT 5.2 Pro audit:
+- Schema normalization (handles target_date/ds, p50/yhat_p50)
+- Non-compounding multipliers (max, not product)
+- Shrinkage and caps for stability
 """
-
-import pandas as pd
-import numpy as np
 import logging
+import numpy as np
+import pandas as pd
 from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
 
 def compute_oof_spike_multipliers(
-    df_actuals: pd.DataFrame,
     df_predictions: pd.DataFrame,
-    spike_flags: List[str],
-    shrinkage: float = 0.3,
-    min_multiplier: float = 0.8,
-    max_multiplier: float = 1.8,
-    min_observations: int = 2
+    df_actuals: pd.DataFrame,
+    df_spike_flags: pd.DataFrame,
+    id_col: str = "ds",
+    min_observations: int = 1,  # Allow single-observation holidays (data-limited)
+    shrinkage: float = 0.65,    # Shrink toward 1.0 for stability
+    cap_low: float = 0.85,      # Prevent over-correction downward
+    cap_high: float = 1.80      # Prevent over-correction upward
 ) -> Dict[str, float]:
     """
-    Compute OOF calibration multipliers for spike days.
+    Compute multipliers from OOF residual ratios on spike days.
+    
+    For each spike flag:
+        ratio = actual / prediction
+    Then shrink toward 1.0 and cap for stability.
+    
+    FIXED: Schema normalization, deduplication, shrinkage, caps
     
     Parameters
     ----------
-    df_actuals : pd.DataFrame
-        Actual sales with columns: ds, y, is_closed, spike flags
     df_predictions : pd.DataFrame
-        Model predictions with columns: ds, yhat_p50, cutoff_date
-    spike_flags : List[str]
-        List of spike flag column names (e.g., 'is_black_friday')
-    shrinkage : float
-        Shrinkage toward 1.0 (0 = no shrinkage, 1 = full shrinkage to 1.0)
-    min_multiplier : float
-        Minimum allowed multiplier
-    max_multiplier : float
-        Maximum allowed multiplier
+        OOF predictions with date column and prediction column
+        Accepts: ds/target_date, p50/yhat_p50/yhat
+    df_actuals : pd.DataFrame
+        Actuals with date and sales columns
+        Accepts: ds/target_date, y/Net sales
+    df_spike_flags : pd.DataFrame
+        Spike flags with date and is_* columns
+    id_col : str
+        Date column name (default: "ds")
     min_observations : int
-        Minimum observations required to compute multiplier
+        Minimum observations needed to compute multiplier
+    shrinkage : float
+        Shrinkage factor toward 1.0 (0.65 = shrink 35% toward neutral)
+    cap_low : float
+        Lower bound for multiplier
+    cap_high : float
+        Upper bound for multiplier
         
     Returns
     -------
     Dict[str, float]
         Multipliers for each spike flag
     """
-    # Merge actuals with predictions
-    df_merged = df_predictions.merge(
-        df_actuals[['ds', 'y', 'is_closed'] + spike_flags],
-        on='ds',
-        how='inner'
-    )
+    preds = df_predictions.copy()
     
-    # Filter to open days only
-    df_merged = df_merged[~df_merged['is_closed']].copy()
+    # ---- Schema Normalization ----
+    # Handle different date column names
+    if id_col not in preds.columns:
+        if "target_date" in preds.columns:
+            preds = preds.rename(columns={"target_date": id_col})
+        else:
+            raise ValueError(f"df_predictions missing '{id_col}' or 'target_date'")
     
-    # Compute ratio y / yhat_p50
-    df_merged['ratio'] = df_merged['y'] / df_merged['yhat_p50'].clip(lower=1.0)
+    # Handle different prediction column names
+    if "yhat_p50" not in preds.columns:
+        if "p50" in preds.columns:
+            preds = preds.rename(columns={"p50": "yhat_p50"})
+        elif "yhat" in preds.columns:
+            preds = preds.rename(columns={"yhat": "yhat_p50"})
+        else:
+            raise ValueError("df_predictions missing 'yhat_p50' (or 'p50'/'yhat')")
     
+    preds[id_col] = pd.to_datetime(preds[id_col])
+    
+    # If multiple predictions per day exist, reduce to one (median is robust)
+    preds = preds.groupby(id_col, as_index=False)["yhat_p50"].median()
+    
+    # ---- Normalize Actuals ----
+    actuals = df_actuals.copy()
+    if "y" not in actuals.columns:
+        if "Net sales" in actuals.columns:
+            actuals = actuals.rename(columns={"Net sales": "y"})
+        else:
+            raise ValueError("df_actuals missing 'y' (or 'Net sales')")
+    
+    actuals[id_col] = pd.to_datetime(actuals[id_col])
+    
+    # ---- Normalize Flags ----
+    flags = df_spike_flags.copy()
+    flags[id_col] = pd.to_datetime(flags[id_col])
+    
+    # ---- Merge ----
+    merged = preds.merge(actuals[[id_col, "y"]], on=id_col, how="inner") \
+                  .merge(flags, on=id_col, how="left").fillna(0)
+    
+    merged["ratio"] = np.where(merged["yhat_p50"] > 0, merged["y"] / merged["yhat_p50"], np.nan)
+    
+    # ---- Compute Multipliers ----
     multipliers = {}
+    flag_cols = [c for c in flags.columns if c.startswith("is_")]
     
-    for flag in spike_flags:
-        # Get spike days for this flag
-        df_spike = df_merged[df_merged[flag] == 1].copy()
+    for flag in flag_cols:
+        rows = merged[merged[flag].astype(int) == 1]
+        rows = rows[np.isfinite(rows["ratio"])]
         
-        if len(df_spike) < min_observations:
-            logger.warning(f"Spike flag '{flag}': only {len(df_spike)} observations, using 1.0")
-            multipliers[flag] = 1.0
+        if len(rows) < min_observations:
+            logger.warning(f"Spike flag '{flag}' has only {len(rows)} observations (min: {min_observations}), skipping")
             continue
         
-        # Compute median ratio
-        median_ratio = df_spike['ratio'].median()
+        # Compute raw multiplier (median is robust to outliers)
+        raw = float(np.median(rows["ratio"]))
         
-        # Apply shrinkage toward 1.0
-        multiplier = 1.0 + (median_ratio - 1.0) * (1.0 - shrinkage)
+        # Shrink toward 1.0 for stability
+        shrunk = 1.0 + shrinkage * (raw - 1.0)
         
-        # Clip to bounds
-        multiplier = np.clip(multiplier, min_multiplier, max_multiplier)
+        # Cap to prevent instability
+        capped = float(np.clip(shrunk, cap_low, cap_high))
         
-        multipliers[flag] = multiplier
+        multipliers[flag] = capped
         
-        logger.info(f"Spike flag '{flag}': {len(df_spike)} obs, median ratio {median_ratio:.3f}, "
-                   f"multiplier {multiplier:.3f} (after shrinkage {shrinkage})")
+        logger.info(f"Spike flag '{flag}': {len(rows)} obs, raw={raw:.3f}, shrunk={shrunk:.3f}, capped={capped:.3f}")
     
     return multipliers
 
 
 def apply_spike_overlay(
     df_forecast: pd.DataFrame,
+    df_spike_flags: pd.DataFrame,
     multipliers: Dict[str, float],
-    spike_flags: List[str],
-    quantile_cols: List[str] = ['p50', 'p80', 'p90']
+    id_col: str = "ds"
 ) -> pd.DataFrame:
     """
-    Apply spike overlay multipliers to forecast.
+    Apply a SINGLE overlay multiplier per day.
+    
+    FIXED: If multiple spike flags are active on the same day, use the maximum
+    multiplier (prevents compounding from overlapping flags like is_black_friday
+    + is_day_after_thanksgiving which are identical).
     
     Parameters
     ----------
     df_forecast : pd.DataFrame
-        Forecast with columns: ds, p50, p80, p90, spike flags
+        Forecast with date and quantile columns (p50, p80, p90)
+        Accepts: ds/target_date as date column
+    df_spike_flags : pd.DataFrame
+        Spike flags with date and is_* columns
     multipliers : Dict[str, float]
         Multipliers for each spike flag
-    spike_flags : List[str]
-        List of spike flag column names
-    quantile_cols : List[str]
-        Quantile columns to adjust
+    id_col : str
+        Date column name (default: "ds")
         
     Returns
     -------
@@ -115,149 +163,118 @@ def apply_spike_overlay(
     """
     df = df_forecast.copy()
     
-    # Track which dates were adjusted
-    df['overlay_applied'] = False
-    df['overlay_multiplier'] = 1.0
+    # Normalize forecast date column
+    forecast_date_col = id_col
+    if id_col not in df.columns:
+        if "target_date" in df.columns:
+            forecast_date_col = "target_date"
+        else:
+            raise ValueError(f"df_forecast missing '{id_col}' or 'target_date'")
     
-    for flag in spike_flags:
+    # Normalize spike flags date column
+    flags_date_col = id_col
+    if id_col not in df_spike_flags.columns:
+        if "target_date" in df_spike_flags.columns:
+            flags_date_col = "target_date"
+        else:
+            raise ValueError(f"df_spike_flags missing '{id_col}' or 'target_date'")
+    
+    # Merge spike flags (handle different column names)
+    flag_cols = list(multipliers.keys())
+    if forecast_date_col == flags_date_col:
+        df = df.merge(df_spike_flags[[flags_date_col] + flag_cols], on=forecast_date_col, how="left").fillna(0)
+    else:
+        # Rename to match before merge
+        df_flags_temp = df_spike_flags[[flags_date_col] + flag_cols].copy()
+        df_flags_temp = df_flags_temp.rename(columns={flags_date_col: forecast_date_col})
+        df = df.merge(df_flags_temp, on=forecast_date_col, how="left").fillna(0)
+    
+    # Build per-row multiplier = max(multiplier for any active flag)
+    # This prevents compounding when multiple flags are active
+    mult = np.ones(len(df), dtype=float)
+    
+    for flag, m in multipliers.items():
         if flag not in df.columns:
-            logger.warning(f"Spike flag '{flag}' not found in forecast")
+            logger.warning(f"Spike flag '{flag}' not found in forecast, skipping")
             continue
         
-        if flag not in multipliers:
-            logger.warning(f"No multiplier found for spike flag '{flag}'")
-            continue
+        active = df[flag].astype(int).values == 1
+        mult = np.where(active, np.maximum(mult, m), mult)
         
-        multiplier = multipliers[flag]
-        
-        # Apply multiplier to spike days
-        mask = (df[flag] == 1)
-        n_adjusted = mask.sum()
-        
-        if n_adjusted > 0:
-            for col in quantile_cols:
-                if col in df.columns:
-                    df.loc[mask, col] = df.loc[mask, col] * multiplier
-            
-            df.loc[mask, 'overlay_applied'] = True
-            df.loc[mask, 'overlay_multiplier'] = multiplier
-            
-            logger.info(f"Applied {multiplier:.3f}x multiplier to {n_adjusted} days for flag '{flag}'")
+        n_active = active.sum()
+        if n_active > 0:
+            logger.info(f"Spike flag '{flag}': {n_active} days active, multiplier={m:.3f}")
+    
+    df["overlay_multiplier"] = mult
+    
+    # Apply to quantile columns
+    for q in ["p50", "p80", "p90"]:
+        if q in df.columns:
+            df[q] = df[q] * df["overlay_multiplier"]
+    
+    n_adjusted = (mult > 1.0).sum()
+    logger.info(f"Applied overlay to {n_adjusted} days (multipliers > 1.0)")
     
     return df
 
 
 def generate_oof_overlay_report(
-    df_actuals: pd.DataFrame,
-    df_predictions: pd.DataFrame,
     multipliers: Dict[str, float],
-    spike_flags: List[str],
+    df_forecast: pd.DataFrame,
     output_path: str
 ) -> None:
     """
-    Generate report on OOF spike overlay calibration.
+    Generate a report of OOF overlay multipliers and affected dates.
     
     Parameters
     ----------
-    df_actuals : pd.DataFrame
-        Actual sales
-    df_predictions : pd.DataFrame
-        Model predictions
     multipliers : Dict[str, float]
-        Computed multipliers
-    spike_flags : List[str]
-        Spike flag names
+        Multipliers for each spike flag
+    df_forecast : pd.DataFrame
+        Forecast with overlay applied (must have overlay_multiplier column)
     output_path : str
         Path to save report
     """
-    # Merge actuals with predictions
-    df_merged = df_predictions.merge(
-        df_actuals[['ds', 'y', 'is_closed'] + spike_flags],
-        on='ds',
-        how='inner'
-    )
+    report = []
+    report.append("# OOF Spike Overlay Report")
+    report.append("")
+    report.append("## Multipliers by Spike Flag")
+    report.append("")
+    report.append("| Spike Flag | Multiplier |")
+    report.append("|------------|------------|")
     
-    df_merged = df_merged[~df_merged['is_closed']].copy()
-    df_merged['ratio'] = df_merged['y'] / df_merged['yhat_p50'].clip(lower=1.0)
+    for flag, mult in sorted(multipliers.items(), key=lambda x: x[1], reverse=True):
+        report.append(f"| {flag} | {mult:.3f}x |")
     
-    report_lines = [
-        "# OOF Spike Overlay Calibration Report\n",
-        f"Generated: {pd.Timestamp.now()}\n",
-        "\n## Calibration Multipliers\n",
-        "\n| Spike Flag | Observations | Median Ratio | Multiplier | Status |",
-        "|------------|--------------|--------------|------------|--------|"
-    ]
+    report.append("")
+    report.append("## Affected Dates")
+    report.append("")
     
-    for flag in spike_flags:
-        df_spike = df_merged[df_merged[flag] == 1]
-        n_obs = len(df_spike)
+    if "overlay_multiplier" in df_forecast.columns:
+        affected = df_forecast[df_forecast["overlay_multiplier"] > 1.0].copy()
         
-        if n_obs > 0:
-            median_ratio = df_spike['ratio'].median()
-            multiplier = multipliers.get(flag, 1.0)
-            status = "✓" if multiplier != 1.0 else "default"
+        if len(affected) > 0:
+            report.append(f"Total days with overlay: {len(affected)}")
+            report.append("")
+            report.append("| Date | Multiplier | P50 Before | P50 After |")
+            report.append("|------|------------|------------|-----------|")
+            
+            for _, row in affected.head(20).iterrows():
+                date = row["ds"] if "ds" in row else row.name
+                mult = row["overlay_multiplier"]
+                p50_after = row["p50"] if "p50" in row else "N/A"
+                p50_before = p50_after / mult if p50_after != "N/A" else "N/A"
+                
+                if p50_after != "N/A":
+                    report.append(f"| {date} | {mult:.3f}x | ${p50_before:,.0f} | ${p50_after:,.0f} |")
+                else:
+                    report.append(f"| {date} | {mult:.3f}x | N/A | N/A |")
         else:
-            median_ratio = np.nan
-            multiplier = 1.0
-            status = "no data"
-        
-        report_lines.append(
-            f"| {flag} | {n_obs} | {median_ratio:.3f if not np.isnan(median_ratio) else 'N/A'} | "
-            f"{multiplier:.3f} | {status} |"
-        )
-    
-    report_lines.extend([
-        "\n## Spike Day Performance\n",
-        "\n| Spike Flag | Date | Actual | Predicted | Ratio | Multiplier Applied |",
-        "|------------|------|--------|-----------|-------|-------------------|"
-    ])
-    
-    for flag in spike_flags:
-        df_spike = df_merged[df_merged[flag] == 1].sort_values('ds')
-        for _, row in df_spike.iterrows():
-            multiplier = multipliers.get(flag, 1.0)
-            report_lines.append(
-                f"| {flag} | {row['ds'].strftime('%Y-%m-%d')} | ${row['y']:.0f} | "
-                f"${row['yhat_p50']:.0f} | {row['ratio']:.3f} | {multiplier:.3f}x |"
-            )
-    
-    report_lines.append("\n## Notes\n")
-    report_lines.append("- Multipliers computed using out-of-fold (OOF) methodology\n")
-    report_lines.append("- Shrinkage applied toward 1.0 to prevent overfitting\n")
-    report_lines.append("- Multipliers capped to [0.8, 1.8] range\n")
-    report_lines.append("- Applied consistently to p50, p80, and p90 quantiles\n")
+            report.append("No dates with overlay applied (all multipliers = 1.0)")
+    else:
+        report.append("Overlay not applied (overlay_multiplier column not found)")
     
     with open(output_path, 'w') as f:
-        f.write('\n'.join(report_lines))
+        f.write('\n'.join(report))
     
     logger.info(f"OOF overlay report saved to {output_path}")
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    
-    # Test with sample data
-    df_actuals = pd.DataFrame({
-        'ds': pd.date_range('2025-11-01', periods=30),
-        'y': np.random.uniform(2000, 3000, 30),
-        'is_closed': [False] * 30,
-        'is_black_friday': [0] * 27 + [1] + [0] * 2,
-        'is_memorial_day': [0] * 30
-    })
-    
-    # Simulate Black Friday being 2x higher
-    df_actuals.loc[df_actuals['is_black_friday'] == 1, 'y'] = 6000
-    
-    df_predictions = pd.DataFrame({
-        'ds': df_actuals['ds'],
-        'yhat_p50': np.random.uniform(2000, 3000, 30),
-        'cutoff_date': pd.Timestamp('2025-10-31')
-    })
-    
-    spike_flags = ['is_black_friday', 'is_memorial_day']
-    
-    multipliers = compute_oof_spike_multipliers(
-        df_actuals, df_predictions, spike_flags
-    )
-    
-    print(f"Computed multipliers: {multipliers}")
