@@ -307,8 +307,9 @@ def generate_2026_forecast(
     logger.info("Applying guardrails (pre-calibration)...")
     df_forecast = apply_guardrails(df_forecast, df_hours_2026)
     
-    # Apply growth calibration (V5.0)
-    # V5.1: NOW applied AFTER guardrails so closures are already enforced
+    # Apply growth calibration (V5.2: MONTHLY MODE)
+    # V5.1: Applied AFTER guardrails so closures are already enforced
+    # V5.2: Monthly mode fixes seasonal allocation (Jan too high, Jul too low)
     # Aligns forecast total with target YoY growth (default: +10%)
     # Applied AFTER spike uplift to preserve peak corrections
     ENABLE_GROWTH_CALIBRATION = True
@@ -316,20 +317,17 @@ def generate_2026_forecast(
     
     if ENABLE_GROWTH_CALIBRATION:
         try:
-            from forecasting.pipeline.growth_calibration import (
-                apply_growth_calibration,
-                save_calibration_log
-            )
+            from forecasting.pipeline.growth_calibration import apply_growth_calibration
             
-            # Get 2025 actuals as baseline
-            df_actuals_2025 = df_sales[df_sales['ds'].dt.year == 2025].copy()
-            
-            if len(df_actuals_2025) > 0:
-                df_forecast = apply_growth_calibration(
-                    df_forecast=df_forecast,
-                    df_actuals_baseline=df_actuals_2025,
-                    target_yoy=TARGET_YOY_GROWTH,
-                    excluded_spike_flags=[
+            if len(df_sales) > 0:
+                # V5.2: Get excluded spike flags from spike priors (not hardcoded)
+                # This ensures growth calibration excludes exactly the days that spike uplift adjusted
+                if ENABLE_SPIKE_UPLIFT and 'df_uplift' in locals():
+                    excluded_spike_flags = df_uplift["spike_flag"].tolist()
+                    logger.info(f"Excluding {len(excluded_spike_flags)} spike flags from growth calibration: {excluded_spike_flags}")
+                else:
+                    # Fallback if spike uplift disabled
+                    excluded_spike_flags = [
                         'is_black_friday',
                         'is_year_end_week',
                         'is_memorial_day',
@@ -337,28 +335,64 @@ def generate_2026_forecast(
                         'is_independence_day',
                         'is_christmas_eve',
                         'is_day_after_christmas'
-                    ],
-                    min_scale=0.85,
-                    max_scale=1.15
+                    ]
+                    logger.warning("Spike uplift not available, using fallback excluded flags")
+                
+                # V5.2: Apply MONTHLY growth calibration
+                df_forecast, df_growth_log = apply_growth_calibration(
+                    df_forecast=df_forecast,
+                    df_history=df_sales,
+                    target_yoy_rate=TARGET_YOY_GROWTH,
+                    excluded_spike_flags=excluded_spike_flags,
+                    mode="monthly",  # V5.2: Monthly mode to fix seasonal allocation
+                    min_scale=0.80,
+                    max_scale=1.25
                 )
                 
-                # Save calibration log (should work now that ds exists)
-                try:
-                    save_calibration_log(
-                        df_forecast=df_forecast,
-                        output_path="outputs/reports/growth_calibration_log.csv"
-                    )
-                    logger.info("Growth calibration log saved successfully (V5.1)")
-                except Exception as log_err:
-                    logger.warning(f"Could not save calibration log: {log_err}")
+                # Save calibration log
+                df_growth_log.to_csv("outputs/reports/growth_calibration_log.csv", index=False)
+                logger.info("Growth calibration log saved successfully (V5.2)")
                 
-                logger.info(f"Growth calibration applied: target={TARGET_YOY_GROWTH:+.1%}")
+                # V5.2: Generate monthly calibration scales summary
+                df_monthly_scales = df_growth_log[~df_growth_log['is_excluded']].groupby('month').agg({
+                    'calibration_scale': 'first',
+                    'p50_before': 'sum',
+                    'p50_after': 'sum'
+                }).reset_index()
+                df_monthly_scales.columns = ['month', 'month_scale', 'forecast_nonspike_total_before', 'forecast_nonspike_total_after']
+                
+                # Add baseline and target totals
+                df_sales['month'] = pd.to_datetime(df_sales['ds']).dt.month
+                baseline_year = pd.to_datetime(df_sales['ds']).dt.year.max()
+                df_sales_baseline = df_sales[pd.to_datetime(df_sales['ds']).dt.year == baseline_year]
+                baseline_month_totals = df_sales_baseline.groupby('month')['y'].sum().reset_index()
+                baseline_month_totals.columns = ['month', 'baseline_2025_month_total']
+                
+                df_monthly_scales = df_monthly_scales.merge(baseline_month_totals, on='month', how='left')
+                df_monthly_scales['target_2026_month_total'] = df_monthly_scales['baseline_2025_month_total'] * (1 + TARGET_YOY_GROWTH)
+                
+                # Add spike totals
+                spike_totals = df_growth_log[df_growth_log['is_excluded']].groupby('month')['p50_after'].sum().reset_index()
+                spike_totals.columns = ['month', 'forecast_spike_total']
+                df_monthly_scales = df_monthly_scales.merge(spike_totals, on='month', how='left')
+                df_monthly_scales['forecast_spike_total'] = df_monthly_scales['forecast_spike_total'].fillna(0)
+                
+                # Compute achieved total
+                df_monthly_scales['achieved_month_total_after'] = df_monthly_scales['forecast_nonspike_total_after'] + df_monthly_scales['forecast_spike_total']
+                
+                # Save monthly scales summary
+                df_monthly_scales.to_csv("outputs/reports/monthly_calibration_scales.csv", index=False)
+                logger.info("Monthly calibration scales saved (V5.2)")
+                
+                logger.info(f"Growth calibration applied: mode=monthly, target={TARGET_YOY_GROWTH:+.1%}")
             else:
-                logger.warning("No 2025 actuals found, skipping growth calibration")
+                logger.warning("No historical sales found, skipping growth calibration")
                 
         except Exception as e:
             logger.error(f"Growth calibration failed: {e}")
             logger.warning("Continuing without growth calibration")
+            import traceback
+            traceback.print_exc()
     
     # Apply overrides
     df_forecast = apply_overrides(df_forecast)

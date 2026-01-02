@@ -1,8 +1,8 @@
 {
-  "run_utc": "2026-01-02T02:49:17Z",
+  "run_utc": "2026-01-02T04:44:28Z",
   "data_through": "2025-12-31",
   "forecast_rows": 365,
-  "forecast_total_p50": 1066144.6730000002,
+  "forecast_total_p50": 1066144.6730000004,
   "forecast_closed_days": 3,
   "outputs": {
     "forecast_daily_2026": "outputs/forecasts/forecast_daily_2026.csv",
