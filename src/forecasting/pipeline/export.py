@@ -229,6 +229,12 @@ def generate_2026_forecast(
     
     df_forecast = ensemble.predict(model_predictions)
     
+    # --- V5.1: Standardize date column for all downstream post-processing ---
+    if 'target_date' in df_forecast.columns and 'ds' not in df_forecast.columns:
+        df_forecast = df_forecast.rename(columns={'target_date': 'ds'})
+    df_forecast['ds'] = pd.to_datetime(df_forecast['ds'])
+    logger.info(f"Forecast dataframe standardized: {len(df_forecast)} rows with 'ds' column")
+    
     # Apply spike uplift overlay (REWRITTEN in V5.0)
     # Replaces OOF overlay with improved matched-baseline approach
     # Key fixes: min_observations=1, matched baseline (DOW+month), non-compounding
@@ -249,11 +255,13 @@ def generate_2026_forecast(
             
             # Compute uplift priors from historical sales
             # V5.0: Uses matched baseline (DOW+month), min_observations=1
+            # V5.1: Tuned shrinkage (0.25) and max_multiplier (1.6) per ChatGPT 5.2 Pro
             df_uplift = compute_spike_uplift_priors(
                 df_sales=df_sales_with_flags,
                 ds_max=None,  # Use all available data for production forecast
                 min_observations=1,  # Works with 1 year of data
-                shrinkage_factor=0.5  # Moderate shrinkage toward 1.0
+                shrinkage_factor=0.25,  # Less shrinkage for better peak capture
+                max_multiplier=1.6  # Cap to prevent over-correction
             )
             
             logger.info(f"Computed spike uplift priors for {len(df_uplift)} flags")
@@ -261,25 +269,12 @@ def generate_2026_forecast(
             # Save priors for transparency
             df_uplift.to_csv("outputs/models/spike_uplift_priors.csv", index=False)
             
-            # Add spike flags to forecast dataframe
-            # Get spike flags from inference data
-            df_inf_short = pd.read_parquet(inf_short_path)
-            spike_flags_available = [f for f in df_uplift['spike_flag'].tolist() if f in df_inf_short.columns]
+            # V5.1: Add spike flags directly from ds (no join; deterministic)
+            df_forecast = add_spike_day_features(df_forecast)
             
-            if len(spike_flags_available) > 0:
-                df_spike_2026 = df_inf_short[['target_date'] + spike_flags_available].drop_duplicates('target_date')
-                df_spike_2026 = df_spike_2026.rename(columns={'target_date': 'ds'})
-                
-                # Merge spike flags into forecast
-                df_forecast = df_forecast.merge(df_spike_2026, on='ds', how='left')
-                
-                # Fill missing flags with 0
-                for flag in spike_flags_available:
-                    df_forecast[flag] = df_forecast[flag].fillna(0).astype(int)
-                
-                logger.info(f"Added {len(spike_flags_available)} spike flags to forecast")
-            else:
-                logger.warning("No spike flags found in inference data")
+            # Ensure the flags referenced by priors exist on df_forecast
+            spike_flags_available = [f for f in df_uplift['spike_flag'].tolist() if f in df_forecast.columns]
+            logger.info(f"Spike flags available on forecast: {spike_flags_available}")
             
             # Apply uplift overlay to forecast
             # V5.0: Non-compounding (uses max multiplier)
@@ -288,20 +283,32 @@ def generate_2026_forecast(
                 df_uplift=df_uplift
             )
             
-            # Save adjustment log
-            save_spike_uplift_log(
-                df_forecast=df_forecast,
-                output_path="outputs/reports/spike_uplift_log.csv"
-            )
-            
-            logger.info("Spike uplift overlay applied successfully (V5.0)")
+            # V5.1: Check if overlay actually applied
+            n_adjusted = (df_forecast.get('adjustment_multiplier', pd.Series([1.0])) != 1.0).sum()
+            if n_adjusted == 0:
+                logger.warning("Spike uplift applied to 0 days — expected >0. Check spike flags / date alignment.")
+            else:
+                logger.info(f"Spike uplift applied to {n_adjusted} days.")
+                
+                # Save adjustment log
+                save_spike_uplift_log(
+                    df_forecast=df_forecast,
+                    output_path="outputs/reports/spike_uplift_log.csv"
+                )
+                logger.info("Spike uplift overlay applied successfully (V5.1)")
             
         except Exception as e:
             logger.error(f"Spike uplift overlay failed: {e}")
             logger.warning("Continuing without spike uplift (forecasts may under-predict peaks)")
             # Don't raise - allow pipeline to continue without uplift
     
+    # V5.1: Apply guardrails FIRST (before growth calibration)
+    # This ensures closed days are set to 0 before calibration computes totals
+    logger.info("Applying guardrails (pre-calibration)...")
+    df_forecast = apply_guardrails(df_forecast, df_hours_2026)
+    
     # Apply growth calibration (V5.0)
+    # V5.1: NOW applied AFTER guardrails so closures are already enforced
     # Aligns forecast total with target YoY growth (default: +10%)
     # Applied AFTER spike uplift to preserve peak corrections
     ENABLE_GROWTH_CALIBRATION = True
@@ -335,12 +342,13 @@ def generate_2026_forecast(
                     max_scale=1.15
                 )
                 
-                # Save calibration log
+                # Save calibration log (should work now that ds exists)
                 try:
                     save_calibration_log(
                         df_forecast=df_forecast,
                         output_path="outputs/reports/growth_calibration_log.csv"
                     )
+                    logger.info("Growth calibration log saved successfully (V5.1)")
                 except Exception as log_err:
                     logger.warning(f"Could not save calibration log: {log_err}")
                 
@@ -351,10 +359,6 @@ def generate_2026_forecast(
         except Exception as e:
             logger.error(f"Growth calibration failed: {e}")
             logger.warning("Continuing without growth calibration")
-    
-    # Apply guardrails
-    logger.info("Applying guardrails...")
-    df_forecast = apply_guardrails(df_forecast, df_hours_2026)
     
     # Apply overrides
     df_forecast = apply_overrides(df_forecast)

@@ -23,7 +23,8 @@ def compute_spike_uplift_priors(
     df_sales: pd.DataFrame,
     ds_max: pd.Timestamp = None,
     min_observations: int = 1,  # Changed from 2 to 1 in V5.0
-    shrinkage_factor: float = 0.5
+    shrinkage_factor: float = 0.5,
+    max_multiplier: float = 2.5  # V5.1: Configurable cap
 ) -> pd.DataFrame:
     """
     Compute uplift multipliers for spike-day flags using historical data.
@@ -144,8 +145,9 @@ def compute_spike_uplift_priors(
         # Apply shrinkage toward 1.0
         shrunk_uplift = 1.0 + shrinkage_factor * (raw_uplift - 1.0)
         
-        # Cap to reasonable range [0.7, 2.5]
-        capped_uplift = np.clip(shrunk_uplift, 0.7, 2.5)
+        # Cap to reasonable range [0.7, max_multiplier]
+        # V5.1: max_multiplier is now configurable
+        capped_uplift = np.clip(shrunk_uplift, 0.7, max_multiplier)
         
         # Confidence based on sample size
         if n_obs >= 5:
