@@ -258,7 +258,11 @@ def save_spike_uplift_log(df_forecast: pd.DataFrame, output_path: str):
         logger.info("No spike-day adjustments applied")
         return
     
-    log_df = adjusted[['ds', 'p50', 'adjustment_multiplier', 'adjustment_log']].copy()
+    # Include is_closed to explain why some adjusted days end up as 0
+    cols = ['ds', 'p50', 'adjustment_multiplier', 'adjustment_log']
+    if 'is_closed' in adjusted.columns:
+        cols.append('is_closed')
+    log_df = adjusted[cols].copy()
     log_df = log_df.sort_values('ds')
     
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)

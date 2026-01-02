@@ -74,8 +74,17 @@ def apply_growth_calibration(
             'is_day_after_christmas'
         ]
     
-    # Get baseline year (most recent full year in history)
-    baseline_year = df_hist['ds'].dt.year.max()
+    # Get baseline year (most recent COMPLETE year in history)
+    max_date = df_hist['ds'].max()
+    max_year = max_date.year
+    
+    # If max_date is not Dec 31, use previous year as baseline
+    if max_date.month == 12 and max_date.day == 31:
+        baseline_year = max_year
+    else:
+        baseline_year = max_year - 1
+        logger.info(f"Max date {max_date} is not Dec 31, using baseline_year={baseline_year} (last complete year)")
+    
     df_hist_year = df_hist[df_hist['ds'].dt.year == baseline_year].copy()
     
     logger.info(f"Growth calibration mode={mode}, baseline_year={baseline_year}, target_yoy={target_yoy_rate:+.1%}")

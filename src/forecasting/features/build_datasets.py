@@ -222,12 +222,15 @@ def build_inference_features_2026(
     
     logger.info(f"Issue date: {issue_date}")
     
-    # 2026 date range
-    dates_2026 = pd.date_range(start='2026-01-01', end='2026-12-31', freq='D')
+    # Forecast date range (from config)
+    forecast_start = config.get('forecast_start', '2026-01-01')
+    forecast_end = config.get('forecast_end', '2026-12-31')
+    dates_forecast = pd.date_range(start=forecast_start, end=forecast_end, freq='D')
+    logger.info(f"Forecast window: {forecast_start} to {forecast_end}")
     
     # Build short-horizon features (H=1-14)
     logger.info("Building short-horizon 2026 features...")
-    target_dates_short = [d for d in dates_2026 if 1 <= (d - issue_date).days <= max(short_horizons)]
+    target_dates_short = [d for d in dates_forecast if 1 <= (d - issue_date).days <= max(short_horizons)]
     
     df_inf_short = build_features_short(
         issue_date=issue_date,
@@ -245,7 +248,7 @@ def build_inference_features_2026(
     
     # Build long-horizon features (H=15-380)
     logger.info("Building long-horizon 2026 features...")
-    target_dates_long = [d for d in dates_2026 if min(long_horizons) <= (d - issue_date).days <= max(long_horizons)]
+    target_dates_long = [d for d in dates_forecast if min(long_horizons) <= (d - issue_date).days <= max(long_horizons)]
     
     df_inf_long = build_features_long(
         issue_date=issue_date,

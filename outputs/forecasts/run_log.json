@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-01-02T14:40:58.697117",
+  "data_through": "2025-12-31",
+  "forecast_start": "2026-01-01 00:00:00",
+  "forecast_end": "2026-12-31 00:00:00",
+  "forecast_days": 365,
+  "annual_total_p50": 1066144.6730000004,
+  "annual_total_p80": 1126960.188712823,
+  "spike_days_adjusted": 15,
+  "calibration_mode": "unknown"
+}

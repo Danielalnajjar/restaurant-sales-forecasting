@@ -417,6 +417,25 @@ def generate_2026_forecast(
     df_forecast.to_csv(output_daily_path, index=False)
     logger.info(f"Saved daily forecast to {output_daily_path} ({len(df_forecast)} rows)")
     
+    # Save run metadata log
+    import json
+    from datetime import datetime
+    run_log = {
+        'timestamp': datetime.now().isoformat(),
+        'data_through': str(data_through),
+        'forecast_start': str(df_forecast['ds'].min()),
+        'forecast_end': str(df_forecast['ds'].max()),
+        'forecast_days': len(df_forecast),
+        'annual_total_p50': float(df_forecast['p50'].sum()),
+        'annual_total_p80': float(df_forecast['p80'].sum()),
+        'spike_days_adjusted': int(n_adjusted) if 'n_adjusted' in locals() else 0,
+        'calibration_mode': 'monthly' if 'monthly' in str(locals().get('calibration_log_path', '')) else 'unknown',
+    }
+    run_log_path = output_daily_path.replace('forecast_daily_2026.csv', 'run_log.json')
+    with open(run_log_path, 'w') as f:
+        json.dump(run_log, f, indent=2)
+    logger.info(f"Saved run metadata to {run_log_path}")
+    
     # Generate rollups (aligned to operations)
     logger.info("Generating rollups...")
 
