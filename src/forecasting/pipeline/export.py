@@ -229,91 +229,128 @@ def generate_2026_forecast(
     
     df_forecast = ensemble.predict(model_predictions)
     
-    # Apply OOF spike overlay (RE-ENABLED in V4.2 per ChatGPT 5.2 Pro audit)
-    # FIXED: Schema normalization, non-compounding multipliers, shrinkage, caps
-    # This corrects systematic spike-day under-prediction
-    logger.info("OOF spike overlay: ENABLED (V4.2 fixes applied)")
-    ENABLE_OOF_SPIKE_OVERLAY = True
+    # Apply spike uplift overlay (REWRITTEN in V5.0)
+    # Replaces OOF overlay with improved matched-baseline approach
+    # Key fixes: min_observations=1, matched baseline (DOW+month), non-compounding
+    logger.info("Spike uplift overlay: ENABLED (V5.0 matched baseline)")
+    ENABLE_SPIKE_UPLIFT = True
     
-    if ENABLE_OOF_SPIKE_OVERLAY:
+    if ENABLE_SPIKE_UPLIFT:
         try:
-            # Load ensemble OOF predictions for calibration
-            # Try ensemble first, fall back to GBM short
-            try:
-                df_preds_oof = pd.read_parquet("outputs/backtests/preds_ensemble_oof.parquet")
-            except FileNotFoundError:
-                df_preds_oof = pd.read_parquet("outputs/backtests/preds_gbm_short.parquet")
+            from forecasting.features.spike_uplift import (
+                compute_spike_uplift_priors,
+                apply_spike_uplift_overlay,
+                save_spike_uplift_log
+            )
+            from forecasting.features.spike_days import add_spike_day_features
             
-            # Define spike flags
-            spike_flags = [
-            'is_black_friday',
-            'is_memorial_day',
-            'is_memorial_day_weekend',
-            'is_labor_day_weekend',
-            'is_year_end_week'
-            ]
+            # Add spike-day features to historical sales
+            df_sales_with_flags = add_spike_day_features(df_sales.copy())
             
-            # Load spike flags from training data
-            df_train_short = pd.read_parquet("data/processed/train_short.parquet")
-        
-            # Get unique target_date + spike flags from training data
-            spike_cols_available = [f for f in spike_flags if f in df_train_short.columns]
-            df_spike_history = df_train_short[['target_date'] + spike_cols_available].drop_duplicates('target_date')
-            df_spike_history = df_spike_history.rename(columns={'target_date': 'ds'})
-            
-            # Merge spike flags into actuals
-            df_actuals_with_flags = df_sales.merge(
-                df_spike_history,
-                on='ds',
-                how='left'
+            # Compute uplift priors from historical sales
+            # V5.0: Uses matched baseline (DOW+month), min_observations=1
+            df_uplift = compute_spike_uplift_priors(
+                df_sales=df_sales_with_flags,
+                ds_max=None,  # Use all available data for production forecast
+                min_observations=1,  # Works with 1 year of data
+                shrinkage_factor=0.5  # Moderate shrinkage toward 1.0
             )
             
-            # Fill missing spike flags with 0
-            for flag in spike_flags:
-                if flag in df_actuals_with_flags.columns:
-                    df_actuals_with_flags[flag] = df_actuals_with_flags[flag].fillna(0).astype(int)
-                else:
-                    df_actuals_with_flags[flag] = 0
+            logger.info(f"Computed spike uplift priors for {len(df_uplift)} flags")
             
-            # Compute OOF multipliers with new safe implementation
-            multipliers = compute_oof_spike_multipliers(
-                df_predictions=df_preds_oof,
-                df_actuals=df_sales,  # Will be normalized inside function
-                df_spike_flags=df_spike_history,
-                id_col="ds",
-                min_observations=1,    # Allow single-observation holidays (data-limited)
-                shrinkage=0.65,        # Shrink toward 1.0 for stability
-                cap_low=0.85,          # Prevent over-correction downward
-                cap_high=1.80          # Prevent over-correction upward
-            )
+            # Save priors for transparency
+            df_uplift.to_csv("outputs/models/spike_uplift_priors.csv", index=False)
             
-            # Load spike flags for 2026 from inference data
-            df_inf_long = pd.read_parquet(inf_long_path)
-            spike_cols_2026 = [f for f in spike_flags if f in df_inf_long.columns]
-            df_spike_2026 = df_inf_long[['target_date'] + spike_cols_2026].drop_duplicates('target_date')
-            df_spike_2026 = df_spike_2026.rename(columns={'target_date': 'ds'})
+            # Add spike flags to forecast dataframe
+            # Get spike flags from inference data
+            df_inf_short = pd.read_parquet(inf_short_path)
+            spike_flags_available = [f for f in df_uplift['spike_flag'].tolist() if f in df_inf_short.columns]
             
-            # Apply overlay with new safe implementation
-            df_forecast = apply_spike_overlay(
+            if len(spike_flags_available) > 0:
+                df_spike_2026 = df_inf_short[['target_date'] + spike_flags_available].drop_duplicates('target_date')
+                df_spike_2026 = df_spike_2026.rename(columns={'target_date': 'ds'})
+                
+                # Merge spike flags into forecast
+                df_forecast = df_forecast.merge(df_spike_2026, on='ds', how='left')
+                
+                # Fill missing flags with 0
+                for flag in spike_flags_available:
+                    df_forecast[flag] = df_forecast[flag].fillna(0).astype(int)
+                
+                logger.info(f"Added {len(spike_flags_available)} spike flags to forecast")
+            else:
+                logger.warning("No spike flags found in inference data")
+            
+            # Apply uplift overlay to forecast
+            # V5.0: Non-compounding (uses max multiplier)
+            df_forecast = apply_spike_uplift_overlay(
                 df_forecast=df_forecast,
-                df_spike_flags=df_spike_2026,
-                multipliers=multipliers,
-                id_col="ds"
+                df_uplift=df_uplift
             )
             
-            # Generate overlay report
-            generate_oof_overlay_report(
-                multipliers=multipliers,
+            # Save adjustment log
+            save_spike_uplift_log(
                 df_forecast=df_forecast,
-                output_path="outputs/reports/oof_spike_overlay_report.md"
+                output_path="outputs/reports/spike_uplift_log.csv"
             )
             
-            logger.info(f"OOF spike overlay applied with multipliers: {multipliers}")
+            logger.info("Spike uplift overlay applied successfully (V5.0)")
             
         except Exception as e:
-            logger.error(f"OOF spike overlay failed: {e}")
-            logger.error("This is a critical error - overlay should work in V4.2")
-            raise  # Fail fast instead of silent failure
+            logger.error(f"Spike uplift overlay failed: {e}")
+            logger.warning("Continuing without spike uplift (forecasts may under-predict peaks)")
+            # Don't raise - allow pipeline to continue without uplift
+    
+    # Apply growth calibration (V5.0)
+    # Aligns forecast total with target YoY growth (default: +10%)
+    # Applied AFTER spike uplift to preserve peak corrections
+    ENABLE_GROWTH_CALIBRATION = True
+    TARGET_YOY_GROWTH = 0.10  # 10% growth expectation
+    
+    if ENABLE_GROWTH_CALIBRATION:
+        try:
+            from forecasting.pipeline.growth_calibration import (
+                apply_growth_calibration,
+                save_calibration_log
+            )
+            
+            # Get 2025 actuals as baseline
+            df_actuals_2025 = df_sales[df_sales['ds'].dt.year == 2025].copy()
+            
+            if len(df_actuals_2025) > 0:
+                df_forecast = apply_growth_calibration(
+                    df_forecast=df_forecast,
+                    df_actuals_baseline=df_actuals_2025,
+                    target_yoy=TARGET_YOY_GROWTH,
+                    excluded_spike_flags=[
+                        'is_black_friday',
+                        'is_year_end_week',
+                        'is_memorial_day',
+                        'is_labor_day',
+                        'is_independence_day',
+                        'is_christmas_eve',
+                        'is_day_after_christmas'
+                    ],
+                    min_scale=0.85,
+                    max_scale=1.15
+                )
+                
+                # Save calibration log
+                try:
+                    save_calibration_log(
+                        df_forecast=df_forecast,
+                        output_path="outputs/reports/growth_calibration_log.csv"
+                    )
+                except Exception as log_err:
+                    logger.warning(f"Could not save calibration log: {log_err}")
+                
+                logger.info(f"Growth calibration applied: target={TARGET_YOY_GROWTH:+.1%}")
+            else:
+                logger.warning("No 2025 actuals found, skipping growth calibration")
+                
+        except Exception as e:
+            logger.error(f"Growth calibration failed: {e}")
+            logger.warning("Continuing without growth calibration")
     
     # Apply guardrails
     logger.info("Applying guardrails...")

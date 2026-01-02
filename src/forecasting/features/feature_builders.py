@@ -31,14 +31,15 @@ def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds', reference_date
     """
     df = df.copy()
     
-    # Trend feature (days since reference date)
-    # FIXED: Cap at 365 days to prevent extrapolated additive growth into 2026
-    # This prevents Q1 over-prediction by stopping the "ramp-up" from continuing
-    ref_date = pd.to_datetime(reference_date)
-    days_since = (df[ds_col] - ref_date).dt.days.clip(lower=0)
-    
-    df['days_since_open_capped_365'] = days_since.clip(upper=365)
-    df['days_since_open_log1p'] = np.log1p(days_since.clip(upper=365))
+    # Trend feature REMOVED in V5.0
+    # Reason: With only 13 months of data, model cannot distinguish trend from seasonality.
+    # This was causing Q1 over-prediction (+21.5% instead of +10%).
+    # Growth will be handled by explicit calibration layer (Step 5) if needed.
+    # 
+    # If you need to re-enable trend (not recommended with <2 years data):
+    # ref_date = pd.to_datetime(reference_date)
+    # days_since = (df[ds_col] - ref_date).dt.days.clip(lower=0)
+    # df['days_since_open_capped_365'] = days_since.clip(upper=365)
     
     # Basic date features
     df['dow'] = df[ds_col].dt.dayofweek  # Monday=0, Sunday=6
@@ -51,11 +52,12 @@ def build_calendar_features(df: pd.DataFrame, ds_col: str = 'ds', reference_date
     df['is_month_start'] = df[ds_col].dt.is_month_start.astype(int)
     df['is_month_end'] = df[ds_col].dt.is_month_end.astype(int)
     
-    # Fourier terms for seasonality
-    df['doy_sin_1'] = np.sin(2 * np.pi * df['dayofyear'] / 365.25)
-    df['doy_cos_1'] = np.cos(2 * np.pi * df['dayofyear'] / 365.25)
-    df['doy_sin_2'] = np.sin(4 * np.pi * df['dayofyear'] / 365.25)
-    df['doy_cos_2'] = np.cos(4 * np.pi * df['dayofyear'] / 365.25)
+    # Fourier terms for seasonality (increased from 2 to 4 orders in V5.0)
+    # More flexibility to capture complex annual patterns
+    fourier_order = 4  # Can be made configurable if needed
+    for k in range(1, fourier_order + 1):
+        df[f'doy_sin_{k}'] = np.sin(2 * np.pi * k * df['dayofyear'] / 365.25)
+        df[f'doy_cos_{k}'] = np.cos(2 * np.pi * k * df['dayofyear'] / 365.25)
     
     # US Federal holidays
     us_holidays = holidays.US(years=range(2024, 2027))
@@ -79,6 +81,10 @@ def build_lag_features(df_sales: pd.DataFrame, issue_date: pd.Timestamp, target_
     """
     Build lag features for target dates as of issue_date.
     
+    FIXED V5.0: Lag features are now computed relative to issue_date (what we know at forecast time),
+    not target_date (which is in the future). This preserves "most recent sales" signal and prevents
+    flattened amplitude.
+    
     Parameters
     ----------
     df_sales : pd.DataFrame
@@ -91,50 +97,55 @@ def build_lag_features(df_sales: pd.DataFrame, issue_date: pd.Timestamp, target_
     Returns
     -------
     pd.DataFrame
-        DataFrame with target_date and lag features
+        DataFrame with target_date and lag features (same lag values for all target_dates)
     """
-    # Filter sales to issue_date
-    df_sales_filtered = df_sales[df_sales['ds'] <= issue_date].copy()
+    # Filter sales to issue_date (only use data available at forecast time)
+    df = df_sales[~df_sales['is_closed']].copy()
+    df = df[df['ds'] <= issue_date].sort_values('ds')
     
-    lag_features = []
+    if len(df) == 0:
+        # No data available - return NaNs
+        out = pd.DataFrame({'target_date': pd.to_datetime(target_dates)})
+        for col in ['y_last', 'y_lag_1', 'y_lag_7', 'y_lag_14', 'y_lag_21', 'y_lag_28',
+                    'y_roll_mean_7', 'y_roll_mean_14', 'y_roll_mean_28']:
+            out[col] = np.nan
+        return out
     
-    for target_date in target_dates:
-        features = {'target_date': target_date}
-        
-        # Lag 1
-        lag1_date = target_date - pd.Timedelta(days=1)
-        lag1 = df_sales_filtered[df_sales_filtered['ds'] == lag1_date]
-        features['y_lag_1'] = lag1['y'].values[0] if len(lag1) > 0 else np.nan
-        
-        # Lag 7
-        lag7_date = target_date - pd.Timedelta(days=7)
-        lag7 = df_sales_filtered[df_sales_filtered['ds'] == lag7_date]
-        features['y_lag_7'] = lag7['y'].values[0] if len(lag7) > 0 else np.nan
-        
-        # Lag 14
-        lag14_date = target_date - pd.Timedelta(days=14)
-        lag14 = df_sales_filtered[df_sales_filtered['ds'] == lag14_date]
-        features['y_lag_14'] = lag14['y'].values[0] if len(lag14) > 0 else np.nan
-        
-        # Rolling mean 7 (mean of open days in [T-7, T-1])
-        recent_7 = df_sales_filtered[
-            (df_sales_filtered['ds'] >= target_date - pd.Timedelta(days=7)) &
-            (df_sales_filtered['ds'] < target_date) &
-            (~df_sales_filtered['is_closed'])
-        ]
-        features['y_roll_mean_7'] = recent_7['y'].mean() if len(recent_7) > 0 else np.nan
-        
-        # Rolling mean 28
-        recent_28 = df_sales_filtered[
-            (df_sales_filtered['ds'] >= target_date - pd.Timedelta(days=28)) &
-            (df_sales_filtered['ds'] < target_date) &
-            (~df_sales_filtered['is_closed'])
-        ]
-        features['y_roll_mean_28'] = recent_28['y'].mean() if len(recent_28) > 0 else np.nan
-        
-        lag_features.append(features)
+    y_by_ds = df.set_index('ds')['y']
     
-    return pd.DataFrame(lag_features)
+    def get_y(d):
+        """Get y value for date d, or NaN if not available."""
+        return float(y_by_ds.loc[d]) if d in y_by_ds.index else np.nan
+    
+    # Last observed day (issue_date or closest prior)
+    if issue_date in y_by_ds.index:
+        y_last = float(y_by_ds.loc[issue_date])
+    else:
+        # Fallback: most recent available <= issue_date
+        y_last = float(y_by_ds.iloc[-1]) if len(y_by_ds) > 0 else np.nan
+    
+    # Compute lag features ONCE (relative to issue_date, not target_date)
+    feats = {
+        'y_last': y_last,
+        'y_lag_1': get_y(issue_date - pd.Timedelta(days=1)),
+        'y_lag_7': get_y(issue_date - pd.Timedelta(days=7)),
+        'y_lag_14': get_y(issue_date - pd.Timedelta(days=14)),
+        'y_lag_21': get_y(issue_date - pd.Timedelta(days=21)),
+        'y_lag_28': get_y(issue_date - pd.Timedelta(days=28)),
+    }
+    
+    # Rolling means (last N days ending at issue_date)
+    for window in [7, 14, 28]:
+        window_start = issue_date - pd.Timedelta(days=window)
+        window_data = df[(df['ds'] > window_start) & (df['ds'] <= issue_date)]
+        feats[f'y_roll_mean_{window}'] = window_data['y'].mean() if len(window_data) > 0 else np.nan
+    
+    # Broadcast to all target_dates (same lag values for all horizons from same issue_date)
+    out = pd.DataFrame({'target_date': pd.to_datetime(target_dates)})
+    for k, v in feats.items():
+        out[k] = v
+    
+    return out
 
 
 def build_features_short(
