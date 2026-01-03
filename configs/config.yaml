@@ -23,3 +23,69 @@ backtest:
   min_train_days: 120
   step_days: 14
   max_horizon_days: 380
+
+# Growth calibration
+growth_calibration:
+  enabled: true
+  target_yoy_rate: 0.10  # 10% year-over-year growth
+  mode: monthly  # monthly or annual
+  min_scale: 0.80
+  max_scale: 1.25
+  excluded_spike_flags:
+    - is_black_friday
+    - is_year_end_week
+    - is_memorial_day
+    - is_labor_day
+    - is_independence_day
+    - is_christmas_eve
+    - is_day_after_christmas
+
+# Spike uplift
+spike_uplift:
+  enabled: true
+  min_observations: 1
+  shrinkage_factor: 0.25
+  max_multiplier: 1.6
+
+# File paths
+paths:
+  # Raw data
+  raw_sales: data/raw/Sales by day.csv
+  raw_hours_calendar_2026: data/raw/hours_calendar_2026_v2.csv
+  raw_hours_overrides_2026: data/raw/hours_overrides_2026_v2.csv
+  raw_events_2026_exact: data/events/events_2026_exact_dates_clean_v2.csv
+  raw_recurring_events: data/events/recurring_event_mapping_2025_2026_clean.csv
+  
+  # Processed data
+  processed_sales: data/processed/fact_sales_daily.parquet
+  processed_hours_2026: data/processed/hours_calendar_2026.parquet
+  processed_hours_history: data/processed/hours_calendar_history.parquet
+  processed_events_2026_exact: data/processed/events_2026_exact.parquet
+  processed_recurring_events: data/processed/recurring_event_mapping.parquet
+  processed_events_2026: data/processed/features/events_daily_2026.parquet
+  processed_events_history: data/processed/features/events_daily_history.parquet
+  processed_event_uplift_priors: data/processed/event_uplift_priors.parquet
+  processed_train_short: data/processed/train_short.parquet
+  processed_train_long: data/processed/train_long.parquet
+  processed_inference_short: data/processed/inference_features_short_2026.parquet
+  processed_inference_long: data/processed/inference_features_long_2026.parquet
+  
+  # Model outputs
+  models_ensemble_weights: outputs/models/ensemble_weights.csv
+  models_spike_uplift_priors: outputs/models/spike_uplift_priors.csv
+  
+  # Backtest outputs
+  backtests_baselines: outputs/backtests/preds_baselines.parquet
+  backtests_gbm_short: outputs/backtests/preds_gbm_short.parquet
+  backtests_gbm_long: outputs/backtests/preds_gbm_long.parquet
+  backtests_chronos2: outputs/backtests/preds_chronos2.parquet
+  
+  # Forecast outputs
+  forecasts_daily: outputs/forecasts/forecast_daily_2026.csv
+  forecasts_rollups_ordering: outputs/forecasts/rollups_ordering.csv
+  forecasts_rollups_scheduling: outputs/forecasts/rollups_scheduling.csv
+  
+  # Reports
+  reports_run_log: outputs/reports/run_log.json
+  reports_spike_uplift_log: outputs/reports/spike_uplift_log.csv
+  reports_growth_calibration_log: outputs/reports/growth_calibration_log.csv

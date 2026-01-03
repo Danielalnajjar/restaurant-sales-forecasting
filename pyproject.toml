@@ -19,7 +19,56 @@ dependencies = [
 chronos = [
     "autogluon.timeseries>=1.0.0",
 ]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+# Line length
+line-length = 100
+
+# Python version
+target-version = "py311"
+
+# Exclude directories
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".eggs",
+    "*.egg-info",
+    ".venv",
+    "venv",
+    "AutogluonModels",
+]
+
+[tool.ruff.lint]
+# Enable rules
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "W",   # pycodestyle warnings
+]
+
+# Ignore specific rules
+ignore = [
+    "E501",  # line too long (handled by line-length)
+    "E722",  # bare except (legacy code, will fix in future)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
