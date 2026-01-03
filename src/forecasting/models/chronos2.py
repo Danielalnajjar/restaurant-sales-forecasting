@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 # Try to import AutoGluon
 try:
     from autogluon.timeseries import TimeSeriesDataFrame, TimeSeriesPredictor
+
     CHRONOS_AVAILABLE = True
     logger.info("Chronos-2 (AutoGluon) is available")
 except ImportError:
@@ -44,40 +45,44 @@ class Chronos2Model:
         logger.info("Training Chronos-2 model (univariate)")
 
         # Prepare data for AutoGluon - use only open days
-        df_train = df_sales[~df_sales['is_closed']].copy()
-        df_train = df_train.rename(columns={'ds': 'timestamp', 'y': 'target'})
-        df_train['item_id'] = 'restaurant'  # Single time series
+        df_train = df_sales[~df_sales["is_closed"]].copy()
+        df_train = df_train.rename(columns={"ds": "timestamp", "y": "target"})
+        df_train["item_id"] = "restaurant"  # Single time series
 
         try:
             # Fill missing dates with forward fill to create regular time series
             # AutoGluon requires regular frequency
-            df_train = df_train.set_index('timestamp')
-            df_train = df_train.asfreq('D', method='ffill')  # Daily frequency, forward fill gaps
+            df_train = df_train.set_index("timestamp")
+            df_train = df_train.asfreq("D", method="ffill")  # Daily frequency, forward fill gaps
             df_train = df_train.reset_index()
-            df_train['item_id'] = 'restaurant'
+            df_train["item_id"] = "restaurant"
 
             # Create TimeSeriesDataFrame
             ts_df = TimeSeriesDataFrame.from_data_frame(
-                df_train[['item_id', 'timestamp', 'target']],
-                id_column='item_id',
-                timestamp_column='timestamp'
+                df_train[["item_id", "timestamp", "target"]],
+                id_column="item_id",
+                timestamp_column="timestamp",
             )
 
             logger.info(f"Training data shape: {ts_df.shape}")
-            logger.info(f"Date range: {ts_df.index.get_level_values('timestamp').min()} to {ts_df.index.get_level_values('timestamp').max()}")
+            logger.info(
+                f"Date range: {ts_df.index.get_level_values('timestamp').min()} to {ts_df.index.get_level_values('timestamp').max()}"
+            )
 
             # Train predictor with Chronos model
             self.model = TimeSeriesPredictor(
-                freq='D',  # Daily frequency
+                freq="D",  # Daily frequency
                 prediction_length=self.prediction_length,
                 quantile_levels=self.quantiles,
-                eval_metric='MAPE',
+                eval_metric="MAPE",
                 verbosity=2,
             )
 
             self.model.fit(
                 ts_df,
-                hyperparameters={'Chronos': {'model_path': 'tiny'}},  # Use tiny model for faster training
+                hyperparameters={
+                    "Chronos": {"model_path": "tiny"}
+                },  # Use tiny model for faster training
                 time_limit=300,  # 5 minutes max
             )
 
@@ -88,6 +93,7 @@ class Chronos2Model:
         except Exception as e:
             logger.error(f"Chronos-2 training failed: {e}")
             import traceback
+
             traceback.print_exc()
             self.model = None
 
@@ -107,7 +113,7 @@ class Chronos2Model:
         """
         if not self.available or self.model is None:
             logger.warning("Chronos-2 not available or not trained, returning empty predictions")
-            return pd.DataFrame(columns=['target_date', 'p50', 'p80', 'p90'])
+            return pd.DataFrame(columns=["target_date", "p50", "p80", "p90"])
 
         if prediction_length is None:
             prediction_length = self.prediction_length
@@ -119,18 +125,20 @@ class Chronos2Model:
 
             # Extract predictions for 'restaurant' item
             preds_df = predictions.reset_index()
-            preds_df = preds_df[preds_df['item_id'] == 'restaurant'].copy()
+            preds_df = preds_df[preds_df["item_id"] == "restaurant"].copy()
 
             # Rename columns
-            preds_df = preds_df.rename(columns={
-                'timestamp': 'target_date',
-                '0.5': 'p50',
-                '0.8': 'p80',
-                '0.9': 'p90',
-            })
+            preds_df = preds_df.rename(
+                columns={
+                    "timestamp": "target_date",
+                    "0.5": "p50",
+                    "0.8": "p80",
+                    "0.9": "p90",
+                }
+            )
 
             # Select only needed columns
-            preds_df = preds_df[['target_date', 'p50', 'p80', 'p90']]
+            preds_df = preds_df[["target_date", "p50", "p80", "p90"]]
 
             # Limit to requested prediction length
             preds_df = preds_df.head(prediction_length)
@@ -142,8 +150,9 @@ class Chronos2Model:
         except Exception as e:
             logger.error(f"Chronos-2 prediction failed: {e}")
             import traceback
+
             traceback.print_exc()
-            return pd.DataFrame(columns=['target_date', 'p50', 'p80', 'p90'])
+            return pd.DataFrame(columns=["target_date", "p50", "p80", "p90"])
 
 
 def run_chronos2_backtest(
@@ -167,9 +176,24 @@ def run_chronos2_backtest(
         logger.warning("This is expected and does not block the pipeline.")
 
         # Create empty outputs
-        df_metrics = pd.DataFrame(columns=['horizon_bucket', 'n', 'wmape', 'rmse', 'bias', 'model_name'])
-        df_preds = pd.DataFrame(columns=['cutoff_date', 'model_name', 'issue_date', 'target_date',
-                                        'horizon', 'horizon_bucket', 'p50', 'p80', 'p90', 'y', 'is_closed'])
+        df_metrics = pd.DataFrame(
+            columns=["horizon_bucket", "n", "wmape", "rmse", "bias", "model_name"]
+        )
+        df_preds = pd.DataFrame(
+            columns=[
+                "cutoff_date",
+                "model_name",
+                "issue_date",
+                "target_date",
+                "horizon",
+                "horizon_bucket",
+                "p50",
+                "p80",
+                "p90",
+                "y",
+                "is_closed",
+            ]
+        )
 
         Path(output_metrics_path).parent.mkdir(parents=True, exist_ok=True)
         df_metrics.to_csv(output_metrics_path, index=False)
@@ -192,9 +216,24 @@ def run_chronos2_backtest(
 
     if model.model is None:
         logger.error("Chronos-2 training failed, creating empty outputs")
-        df_metrics = pd.DataFrame(columns=['horizon_bucket', 'n', 'wmape', 'rmse', 'bias', 'model_name'])
-        df_preds = pd.DataFrame(columns=['cutoff_date', 'model_name', 'issue_date', 'target_date',
-                                        'horizon', 'horizon_bucket', 'p50', 'p80', 'p90', 'y', 'is_closed'])
+        df_metrics = pd.DataFrame(
+            columns=["horizon_bucket", "n", "wmape", "rmse", "bias", "model_name"]
+        )
+        df_preds = pd.DataFrame(
+            columns=[
+                "cutoff_date",
+                "model_name",
+                "issue_date",
+                "target_date",
+                "horizon",
+                "horizon_bucket",
+                "p50",
+                "p80",
+                "p90",
+                "y",
+                "is_closed",
+            ]
+        )
 
         Path(output_metrics_path).parent.mkdir(parents=True, exist_ok=True)
         df_metrics.to_csv(output_metrics_path, index=False)
@@ -212,33 +251,33 @@ def run_chronos2_backtest(
     # For simplified backtest, just save predictions without full evaluation
     # (Full rolling-origin backtest would require training multiple times)
     df_preds = preds.copy()
-    df_preds['model_name'] = 'chronos2'
-    df_preds['cutoff_date'] = df_sales['ds'].max()
-    df_preds['issue_date'] = df_sales['ds'].max()
-    df_preds['horizon'] = (df_preds['target_date'] - df_preds['issue_date']).dt.days
+    df_preds["model_name"] = "chronos2"
+    df_preds["cutoff_date"] = df_sales["ds"].max()
+    df_preds["issue_date"] = df_sales["ds"].max()
+    df_preds["horizon"] = (df_preds["target_date"] - df_preds["issue_date"]).dt.days
 
     # Assign horizon buckets
     def assign_horizon_bucket(h):
         if 1 <= h <= 7:
-            return '1-7'
+            return "1-7"
         elif 8 <= h <= 14:
-            return '8-14'
+            return "8-14"
         elif 15 <= h <= 30:
-            return '15-30'
+            return "15-30"
         elif 31 <= h <= 90:
-            return '31-90'
+            return "31-90"
         elif 91 <= h <= 380:
-            return '91-380'
+            return "91-380"
         else:
-            return 'other'
+            return "other"
 
-    df_preds['horizon_bucket'] = df_preds['horizon'].apply(assign_horizon_bucket)
+    df_preds["horizon_bucket"] = df_preds["horizon"].apply(assign_horizon_bucket)
 
     # Add actuals (will be NaN for future dates)
     df_preds = df_preds.merge(
-        df_sales[['ds', 'y', 'is_closed']].rename(columns={'ds': 'target_date'}),
-        on='target_date',
-        how='left'
+        df_sales[["ds", "y", "is_closed"]].rename(columns={"ds": "target_date"}),
+        on="target_date",
+        how="left",
     )
 
     # Save predictions
@@ -247,14 +286,16 @@ def run_chronos2_backtest(
     logger.info(f"Saved Chronos-2 predictions to {output_preds_path}")
 
     # Create placeholder metrics (can't compute without actuals for future dates)
-    df_metrics = pd.DataFrame({
-        'horizon_bucket': ['1-7', '8-14', '15-30', '31-90', '91-380'],
-        'n': [0, 0, 0, 0, 0],
-        'wmape': [np.nan, np.nan, np.nan, np.nan, np.nan],
-        'rmse': [np.nan, np.nan, np.nan, np.nan, np.nan],
-        'bias': [np.nan, np.nan, np.nan, np.nan, np.nan],
-        'model_name': ['chronos2'] * 5,
-    })
+    df_metrics = pd.DataFrame(
+        {
+            "horizon_bucket": ["1-7", "8-14", "15-30", "31-90", "91-380"],
+            "n": [0, 0, 0, 0, 0],
+            "wmape": [np.nan, np.nan, np.nan, np.nan, np.nan],
+            "rmse": [np.nan, np.nan, np.nan, np.nan, np.nan],
+            "bias": [np.nan, np.nan, np.nan, np.nan, np.nan],
+            "model_name": ["chronos2"] * 5,
+        }
+    )
 
     Path(output_metrics_path).parent.mkdir(parents=True, exist_ok=True)
     df_metrics.to_csv(output_metrics_path, index=False)
@@ -277,4 +318,4 @@ if __name__ == "__main__":
         print("\n=== Chronos-2 Backtest Complete ===")
         print(f"Predictions generated: {len(df_preds)}")
         print("\nSample predictions:")
-        print(df_preds[['target_date', 'p50', 'p80', 'p90']].head(10).to_string(index=False))
+        print(df_preds[["target_date", "p50", "p80", "p90"]].head(10).to_string(index=False))

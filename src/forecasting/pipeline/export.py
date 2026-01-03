@@ -34,38 +34,40 @@ def apply_guardrails(df: pd.DataFrame, df_hours: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
     # Rename target_date to ds if needed
-    if 'target_date' in df.columns and 'ds' not in df.columns:
-        df = df.rename(columns={'target_date': 'ds'})
+    if "target_date" in df.columns and "ds" not in df.columns:
+        df = df.rename(columns={"target_date": "ds"})
 
     # Merge with hours
-    df = df.merge(df_hours[['ds', 'is_closed']], on='ds', how='left', suffixes=('', '_hours'))
+    df = df.merge(df_hours[["ds", "is_closed"]], on="ds", how="left", suffixes=("", "_hours"))
 
     # Use is_closed from hours if not already present
-    if 'is_closed_hours' in df.columns:
-        df['is_closed'] = df['is_closed_hours']
-        df = df.drop(columns=['is_closed_hours'])
+    if "is_closed_hours" in df.columns:
+        df["is_closed"] = df["is_closed_hours"]
+        df = df.drop(columns=["is_closed_hours"])
 
     # Fill missing is_closed with False
-    if 'is_closed' not in df.columns:
-        df['is_closed'] = False
-    df['is_closed'] = df['is_closed'].fillna(False)
+    if "is_closed" not in df.columns:
+        df["is_closed"] = False
+    df["is_closed"] = df["is_closed"].fillna(False)
 
     # Closed days: set all quantiles to 0
-    df.loc[df['is_closed'], ['p50', 'p80', 'p90']] = 0
+    df.loc[df["is_closed"], ["p50", "p80", "p90"]] = 0
 
     # Clamp to non-negative
-    df['p50'] = df['p50'].clip(lower=0)
-    df['p80'] = df['p80'].clip(lower=0)
-    df['p90'] = df['p90'].clip(lower=0)
+    df["p50"] = df["p50"].clip(lower=0)
+    df["p80"] = df["p80"].clip(lower=0)
+    df["p90"] = df["p90"].clip(lower=0)
 
     # Enforce monotonicity: p50 <= p80 <= p90
-    df['p80'] = df[['p50', 'p80']].max(axis=1)
-    df['p90'] = df[['p80', 'p90']].max(axis=1)
+    df["p80"] = df[["p50", "p80"]].max(axis=1)
+    df["p90"] = df[["p80", "p90"]].max(axis=1)
 
     return df
 
 
-def apply_overrides(df: pd.DataFrame, overrides_path: str = "data/overrides/demand_overrides.csv") -> pd.DataFrame:
+def apply_overrides(
+    df: pd.DataFrame, overrides_path: str = "data/overrides/demand_overrides.csv"
+) -> pd.DataFrame:
     """
     Apply demand overrides if file exists.
 
@@ -88,13 +90,13 @@ def apply_overrides(df: pd.DataFrame, overrides_path: str = "data/overrides/dema
     logger.info(f"Applying demand overrides from {overrides_path}")
 
     df_overrides = pd.read_csv(overrides_path)
-    df_overrides['ds'] = pd.to_datetime(df_overrides['ds'])
+    df_overrides["ds"] = pd.to_datetime(df_overrides["ds"])
 
     # Merge and apply overrides
-    df = df.merge(df_overrides, on='ds', how='left', suffixes=('', '_override'))
+    df = df.merge(df_overrides, on="ds", how="left", suffixes=("", "_override"))
 
-    for q in ['p50', 'p80', 'p90']:
-        override_col = f'{q}_override'
+    for q in ["p50", "p80", "p90"]:
+        override_col = f"{q}_override"
         if override_col in df.columns:
             df[q] = df[override_col].fillna(df[q])
             df = df.drop(columns=[override_col])
@@ -165,8 +167,8 @@ def generate_2026_forecast(
     df_hours_history = pd.read_parquet(hours_history_path)
     df_events_history = pd.read_parquet(events_history_path)
 
-    issue_date = df_sales['ds'].max()
-    data_through = issue_date.strftime('%Y-%m-%d')
+    issue_date = df_sales["ds"].max()
+    data_through = issue_date.strftime("%Y-%m-%d")
 
     logger.info(f"Issue date: {issue_date}")
 
@@ -174,24 +176,24 @@ def generate_2026_forecast(
     model_predictions = {}
 
     # Ensure datetime types
-    df_sales['ds'] = pd.to_datetime(df_sales['ds'])
-    df_hours_2026['ds'] = pd.to_datetime(df_hours_2026['ds'])
+    df_sales["ds"] = pd.to_datetime(df_sales["ds"])
+    df_hours_2026["ds"] = pd.to_datetime(df_hours_2026["ds"])
 
     # Baselines (provide full 2026 coverage so ensemble weights apply correctly)
     logger.info("Generating baseline predictions...")
-    target_dates = df_hours_2026['ds'].sort_values().tolist()
+    target_dates = df_hours_2026["ds"].sort_values().tolist()
 
     sn = SeasonalNaiveWeekly()
     sn.fit(df_sales)
     preds_sn = sn.predict(target_dates)
-    preds_sn['horizon'] = (preds_sn['target_date'] - issue_date).dt.days
-    model_predictions['seasonal_naive_weekly'] = preds_sn
+    preds_sn["horizon"] = (preds_sn["target_date"] - issue_date).dt.days
+    model_predictions["seasonal_naive_weekly"] = preds_sn
 
     wm = WeekdayRollingMedian()
     wm.fit(df_sales)
     preds_wm = wm.predict(target_dates)
-    preds_wm['horizon'] = (preds_wm['target_date'] - issue_date).dt.days
-    model_predictions['weekday_rolling_median'] = preds_wm
+    preds_wm["horizon"] = (preds_wm["target_date"] - issue_date).dt.days
+    model_predictions["weekday_rolling_median"] = preds_wm
 
     # GBM Short (H=1-14)
     logger.info("Generating GBM short predictions...")
@@ -205,8 +207,8 @@ def generate_2026_forecast(
         model_short.fit(df_train_short)
 
         preds_short = model_short.predict(df_inf_short)
-        preds_short['horizon'] = (preds_short['target_date'] - issue_date).dt.days
-        model_predictions['gbm_short'] = preds_short
+        preds_short["horizon"] = (preds_short["target_date"] - issue_date).dt.days
+        model_predictions["gbm_short"] = preds_short
 
     # GBM Long (H=15-380)
     logger.info("Generating GBM long predictions...")
@@ -220,8 +222,8 @@ def generate_2026_forecast(
         model_long.fit(df_train_long)
 
         preds_long = model_long.predict(df_inf_long)
-        preds_long['horizon'] = (preds_long['target_date'] - issue_date).dt.days
-        model_predictions['gbm_long'] = preds_long
+        preds_long["horizon"] = (preds_long["target_date"] - issue_date).dt.days
+        model_predictions["gbm_long"] = preds_long
 
     # Chronos-2 (H=1-90)
     logger.info("Generating Chronos-2 predictions...")
@@ -233,10 +235,10 @@ def generate_2026_forecast(
             preds_chronos = model_chronos.predict()
 
             if len(preds_chronos) > 0:
-                preds_chronos['horizon'] = (preds_chronos['target_date'] - issue_date).dt.days
+                preds_chronos["horizon"] = (preds_chronos["target_date"] - issue_date).dt.days
                 # Only use Chronos for forecast year dates
-                preds_chronos = preds_chronos[preds_chronos['target_date'].dt.year == forecast_year]
-                model_predictions['chronos2'] = preds_chronos
+                preds_chronos = preds_chronos[preds_chronos["target_date"].dt.year == forecast_year]
+                model_predictions["chronos2"] = preds_chronos
                 logger.info(f"Chronos-2 generated {len(preds_chronos)} predictions for 2026")
             else:
                 logger.warning("Chronos-2 generated no predictions")
@@ -251,19 +253,21 @@ def generate_2026_forecast(
 
     # Load weights manually
     df_weights = pd.read_csv(ensemble_weights_path)
-    ensemble.models = df_weights['model_name'].unique().tolist()
+    ensemble.models = df_weights["model_name"].unique().tolist()
     ensemble.weights = {}
 
-    for bucket in df_weights['horizon_bucket'].unique():
-        df_bucket_weights = df_weights[df_weights['horizon_bucket'] == bucket]
-        ensemble.weights[bucket] = dict(zip(df_bucket_weights['model_name'], df_bucket_weights['weight']))
+    for bucket in df_weights["horizon_bucket"].unique():
+        df_bucket_weights = df_weights[df_weights["horizon_bucket"] == bucket]
+        ensemble.weights[bucket] = dict(
+            zip(df_bucket_weights["model_name"], df_bucket_weights["weight"])
+        )
 
     df_forecast = ensemble.predict(model_predictions)
 
     # --- V5.1: Standardize date column for all downstream post-processing ---
-    if 'target_date' in df_forecast.columns and 'ds' not in df_forecast.columns:
-        df_forecast = df_forecast.rename(columns={'target_date': 'ds'})
-    df_forecast['ds'] = pd.to_datetime(df_forecast['ds'])
+    if "target_date" in df_forecast.columns and "ds" not in df_forecast.columns:
+        df_forecast = df_forecast.rename(columns={"target_date": "ds"})
+    df_forecast["ds"] = pd.to_datetime(df_forecast["ds"])
     logger.info(f"Forecast dataframe standardized: {len(df_forecast)} rows with 'ds' column")
 
     # Apply spike uplift overlay (REWRITTEN in V5.0)
@@ -288,13 +292,13 @@ def generate_2026_forecast(
             # V5.0: Uses matched baseline (DOW+month), min_observations=1
             # V5.1: Tuned shrinkage (0.25) and max_multiplier (1.6) per ChatGPT 5.2 Pro
             # V5.4: Parameters from config
-            spike_config = config.get('spike_uplift', {})
+            spike_config = config.get("spike_uplift", {})
             df_uplift = compute_spike_uplift_priors(
                 df_sales=df_sales_with_flags,
                 ds_max=None,  # Use all available data for production forecast
-                min_observations=spike_config.get('min_observations', 1),
-                shrinkage_factor=spike_config.get('shrinkage_factor', 0.25),
-                max_multiplier=spike_config.get('max_multiplier', 1.6)
+                min_observations=spike_config.get("min_observations", 1),
+                shrinkage_factor=spike_config.get("shrinkage_factor", 0.25),
+                max_multiplier=spike_config.get("max_multiplier", 1.6),
             )
 
             logger.info(f"Computed spike uplift priors for {len(df_uplift)} flags")
@@ -306,38 +310,44 @@ def generate_2026_forecast(
             df_forecast = add_spike_day_features(df_forecast)
 
             # Ensure the flags referenced by priors exist on df_forecast
-            spike_flags_available = [f for f in df_uplift['spike_flag'].tolist() if f in df_forecast.columns]
+            spike_flags_available = [
+                f for f in df_uplift["spike_flag"].tolist() if f in df_forecast.columns
+            ]
             logger.info(f"Spike flags available on forecast: {spike_flags_available}")
 
             # Apply uplift overlay to forecast
             # V5.0: Non-compounding (uses max multiplier)
-            df_forecast = apply_spike_uplift_overlay(
-                df_forecast=df_forecast,
-                df_uplift=df_uplift
-            )
+            df_forecast = apply_spike_uplift_overlay(df_forecast=df_forecast, df_uplift=df_uplift)
 
             # V5.1: Check if overlay actually applied
-            n_adjusted = (df_forecast.get('adjustment_multiplier', pd.Series([1.0])) != 1.0).sum()
+            n_adjusted = (df_forecast.get("adjustment_multiplier", pd.Series([1.0])) != 1.0).sum()
             if n_adjusted == 0:
-                logger.warning("Spike uplift applied to 0 days — expected >0. Check spike flags / date alignment.")
+                logger.warning(
+                    "Spike uplift applied to 0 days — expected >0. Check spike flags / date alignment."
+                )
             else:
                 logger.info(f"Spike uplift applied to {n_adjusted} days.")
 
                 # Ensure is_closed is in df_forecast before saving log (Step 6 requirement)
-                if 'is_closed' not in df_forecast.columns:
-                    if 'is_closed' in df_hours_2026.columns:
+                if "is_closed" not in df_forecast.columns:
+                    if "is_closed" in df_hours_2026.columns:
                         df_forecast = df_forecast.merge(
-                            df_hours_2026[['ds', 'is_closed']],
-                            on='ds',
-                            how='left'
+                            df_hours_2026[["ds", "is_closed"]], on="ds", how="left"
                         )
-                        df_forecast['is_closed'] = df_forecast['is_closed'].fillna(False)
+                        df_forecast["is_closed"] = df_forecast["is_closed"].fillna(False)
 
-                # Save adjustment log
-                save_spike_uplift_log(
-                    df_forecast=df_forecast,
-                    output_path="outputs/reports/spike_uplift_log.csv"
-                )
+                # Save adjustment log (slugged + stable pointer)
+                spike_log_path_slug = reports_dir / f"spike_uplift_log_{slug}.csv"
+                save_spike_uplift_log(df_forecast=df_forecast, output_path=str(spike_log_path_slug))
+                # Write stable pointer
+                spike_log_path_stable = reports_dir / "spike_uplift_log.csv"
+                df_forecast[
+                    [
+                        c
+                        for c in df_forecast.columns
+                        if c in ["ds", "is_closed", "spike_multiplier", "is_adjusted", "flags_hit"]
+                    ]
+                ].to_csv(spike_log_path_stable, index=False)
                 logger.info("Spike uplift overlay applied successfully (V5.1)")
 
         except Exception as e:
@@ -355,8 +365,8 @@ def generate_2026_forecast(
     # V5.2: Monthly mode fixes seasonal allocation (Jan too high, Jul too low)
     # Aligns forecast total with target YoY growth (from config)
     # Applied AFTER spike uplift to preserve peak corrections
-    ENABLE_GROWTH_CALIBRATION = config.get('growth_calibration', {}).get('enabled', True)
-    TARGET_YOY_GROWTH = config.get('growth_calibration', {}).get('target_yoy_rate', 0.10)
+    ENABLE_GROWTH_CALIBRATION = config.get("growth_calibration", {}).get("enabled", True)
+    TARGET_YOY_GROWTH = config.get("growth_calibration", {}).get("target_yoy_rate", 0.10)
 
     # Track calibration mode for run_log
     calibration_mode_used = "none"
@@ -368,72 +378,106 @@ def generate_2026_forecast(
             if len(df_sales) > 0:
                 # V5.2: Get excluded spike flags from spike priors (not hardcoded)
                 # This ensures growth calibration excludes exactly the days that spike uplift adjusted
-                if ENABLE_SPIKE_UPLIFT and 'df_uplift' in locals():
+                if ENABLE_SPIKE_UPLIFT and "df_uplift" in locals():
                     excluded_spike_flags = df_uplift["spike_flag"].tolist()
-                    logger.info(f"Excluding {len(excluded_spike_flags)} spike flags from growth calibration: {excluded_spike_flags}")
+                    logger.info(
+                        f"Excluding {len(excluded_spike_flags)} spike flags from growth calibration: {excluded_spike_flags}"
+                    )
                 else:
                     # Fallback if spike uplift disabled
                     excluded_spike_flags = [
-                        'is_black_friday',
-                        'is_year_end_week',
-                        'is_memorial_day',
-                        'is_labor_day',
-                        'is_independence_day',
-                        'is_christmas_eve',
-                        'is_day_after_christmas'
+                        "is_black_friday",
+                        "is_year_end_week",
+                        "is_memorial_day",
+                        "is_labor_day",
+                        "is_independence_day",
+                        "is_christmas_eve",
+                        "is_day_after_christmas",
                     ]
                     logger.warning("Spike uplift not available, using fallback excluded flags")
 
                 # V5.2: Apply MONTHLY growth calibration
                 # V5.4: Parameters from config
-                growth_config = config.get('growth_calibration', {})
-                calibration_mode_used = growth_config.get('mode', 'monthly')
+                growth_config = config.get("growth_calibration", {})
+                calibration_mode_used = growth_config.get("mode", "monthly")
                 df_forecast, df_growth_log = apply_growth_calibration(
                     df_forecast=df_forecast,
                     df_history=df_sales,
                     target_yoy_rate=TARGET_YOY_GROWTH,
                     excluded_spike_flags=excluded_spike_flags,
                     mode=calibration_mode_used,
-                    min_scale=growth_config.get('min_scale', 0.80),
-                    max_scale=growth_config.get('max_scale', 1.25)
+                    min_scale=growth_config.get("min_scale", 0.80),
+                    max_scale=growth_config.get("max_scale", 1.25),
                 )
 
-                # Save calibration log
-                df_growth_log.to_csv("outputs/reports/growth_calibration_log.csv", index=False)
-                logger.info("Growth calibration log saved successfully (V5.2)")
+                # Save calibration log (slugged + stable pointer)
+                growth_log_path_slug = reports_dir / f"growth_calibration_log_{slug}.csv"
+                df_growth_log.to_csv(growth_log_path_slug, index=False)
+                # Write stable pointer
+                growth_log_path_stable = reports_dir / "growth_calibration_log.csv"
+                df_growth_log.to_csv(growth_log_path_stable, index=False)
+                logger.info(f"Growth calibration log saved: {growth_log_path_slug} (V5.2)")
 
                 # V5.2: Generate monthly calibration scales summary
-                df_monthly_scales = df_growth_log[~df_growth_log['is_excluded']].groupby('month').agg({
-                    'calibration_scale': 'first',
-                    'p50_before': 'sum',
-                    'p50_after': 'sum'
-                }).reset_index()
-                df_monthly_scales.columns = ['month', 'month_scale', 'forecast_nonspike_total_before', 'forecast_nonspike_total_after']
+                df_monthly_scales = (
+                    df_growth_log[~df_growth_log["is_excluded"]]
+                    .groupby("month")
+                    .agg({"calibration_scale": "first", "p50_before": "sum", "p50_after": "sum"})
+                    .reset_index()
+                )
+                df_monthly_scales.columns = [
+                    "month",
+                    "month_scale",
+                    "forecast_nonspike_total_before",
+                    "forecast_nonspike_total_after",
+                ]
 
                 # Add baseline and target totals
-                df_sales['month'] = pd.to_datetime(df_sales['ds']).dt.month
-                baseline_year = pd.to_datetime(df_sales['ds']).dt.year.max()
-                df_sales_baseline = df_sales[pd.to_datetime(df_sales['ds']).dt.year == baseline_year]
-                baseline_month_totals = df_sales_baseline.groupby('month')['y'].sum().reset_index()
-                baseline_month_totals.columns = ['month', 'baseline_2025_month_total']
+                df_sales["month"] = pd.to_datetime(df_sales["ds"]).dt.month
+                baseline_year = pd.to_datetime(df_sales["ds"]).dt.year.max()
+                df_sales_baseline = df_sales[
+                    pd.to_datetime(df_sales["ds"]).dt.year == baseline_year
+                ]
+                baseline_month_totals = df_sales_baseline.groupby("month")["y"].sum().reset_index()
+                baseline_month_totals.columns = ["month", "baseline_2025_month_total"]
 
-                df_monthly_scales = df_monthly_scales.merge(baseline_month_totals, on='month', how='left')
-                df_monthly_scales['target_2026_month_total'] = df_monthly_scales['baseline_2025_month_total'] * (1 + TARGET_YOY_GROWTH)
+                df_monthly_scales = df_monthly_scales.merge(
+                    baseline_month_totals, on="month", how="left"
+                )
+                df_monthly_scales["target_2026_month_total"] = df_monthly_scales[
+                    "baseline_2025_month_total"
+                ] * (1 + TARGET_YOY_GROWTH)
 
                 # Add spike totals
-                spike_totals = df_growth_log[df_growth_log['is_excluded']].groupby('month')['p50_after'].sum().reset_index()
-                spike_totals.columns = ['month', 'forecast_spike_total']
-                df_monthly_scales = df_monthly_scales.merge(spike_totals, on='month', how='left')
-                df_monthly_scales['forecast_spike_total'] = df_monthly_scales['forecast_spike_total'].fillna(0)
+                spike_totals = (
+                    df_growth_log[df_growth_log["is_excluded"]]
+                    .groupby("month")["p50_after"]
+                    .sum()
+                    .reset_index()
+                )
+                spike_totals.columns = ["month", "forecast_spike_total"]
+                df_monthly_scales = df_monthly_scales.merge(spike_totals, on="month", how="left")
+                df_monthly_scales["forecast_spike_total"] = df_monthly_scales[
+                    "forecast_spike_total"
+                ].fillna(0)
 
                 # Compute achieved total
-                df_monthly_scales['achieved_month_total_after'] = df_monthly_scales['forecast_nonspike_total_after'] + df_monthly_scales['forecast_spike_total']
+                df_monthly_scales["achieved_month_total_after"] = (
+                    df_monthly_scales["forecast_nonspike_total_after"]
+                    + df_monthly_scales["forecast_spike_total"]
+                )
 
-                # Save monthly scales summary
-                df_monthly_scales.to_csv("outputs/reports/monthly_calibration_scales.csv", index=False)
-                logger.info("Monthly calibration scales saved (V5.2)")
+                # Save monthly scales summary (slugged + stable pointer)
+                monthly_scales_path_slug = reports_dir / f"monthly_calibration_scales_{slug}.csv"
+                df_monthly_scales.to_csv(monthly_scales_path_slug, index=False)
+                # Write stable pointer
+                monthly_scales_path_stable = reports_dir / "monthly_calibration_scales.csv"
+                df_monthly_scales.to_csv(monthly_scales_path_stable, index=False)
+                logger.info(f"Monthly calibration scales saved: {monthly_scales_path_slug} (V5.2)")
 
-                logger.info(f"Growth calibration applied: mode=monthly, target={TARGET_YOY_GROWTH:+.1%}")
+                logger.info(
+                    f"Growth calibration applied: mode=monthly, target={TARGET_YOY_GROWTH:+.1%}"
+                )
             else:
                 logger.warning("No historical sales found, skipping growth calibration")
 
@@ -441,6 +485,7 @@ def generate_2026_forecast(
             logger.error(f"Growth calibration failed: {e}")
             logger.warning("Continuing without growth calibration")
             import traceback
+
             traceback.print_exc()
 
     # Apply overrides
@@ -450,16 +495,14 @@ def generate_2026_forecast(
     df_forecast = apply_guardrails(df_forecast, df_hours_2026)
 
     # Add metadata
-    df_forecast = df_forecast.merge(
-        df_hours_2026[['ds', 'open_minutes']],
-        on='ds',
-        how='left'
-    )
-    df_forecast['data_through'] = data_through
+    df_forecast = df_forecast.merge(df_hours_2026[["ds", "open_minutes"]], on="ds", how="left")
+    df_forecast["data_through"] = data_through
 
     # Sort and select columns
-    df_forecast = df_forecast.sort_values('ds')
-    df_forecast = df_forecast[['ds', 'p50', 'p80', 'p90', 'is_closed', 'open_minutes', 'data_through']]
+    df_forecast = df_forecast.sort_values("ds")
+    df_forecast = df_forecast[
+        ["ds", "p50", "p80", "p90", "is_closed", "open_minutes", "data_through"]
+    ]
 
     # Save daily forecast
     Path(output_daily_path).parent.mkdir(parents=True, exist_ok=True)
@@ -480,63 +523,69 @@ def generate_2026_forecast(
 
     # Count spike days adjusted (not closed)
     spike_days_adjusted = 0
-    if 'n_adjusted' in locals():
+    if "n_adjusted" in locals():
         spike_days_adjusted = int(n_adjusted)
 
     run_log = {
-        'timestamp_utc': datetime.utcnow().isoformat() + 'Z',
-        'git_commit': get_git_commit(),
-        'config_path': str(config_path) if config_path else 'unknown',
-        'config_hash': config_hash if config_hash else 'unknown',
-        'data_through': str(data_through),
-        'forecast_start': forecast_start,
-        'forecast_end': forecast_end,
-        'forecast_days': len(df_forecast),
-        'annual_total_p50': float(df_forecast['p50'].sum()),
-        'annual_total_p80': float(df_forecast['p80'].sum()),
-        'annual_total_p90': float(df_forecast['p90'].sum()),
-        'spike_days_adjusted': spike_days_adjusted,
-        'calibration_mode': calibration_mode_used,
-        'outputs': {
-            'forecast_daily': output_daily_path,
-            'rollups_ordering': output_ordering_path,
-            'rollups_scheduling': output_scheduling_path,
-            'run_log': str(reports_dir / f"run_log_{slug}.json"),
-        }
+        "timestamp_utc": datetime.utcnow().isoformat() + "Z",
+        "git_commit": get_git_commit(),
+        "config_path": str(config_path) if config_path else "unknown",
+        "config_hash": config_hash if config_hash else "unknown",
+        "data_through": str(data_through),
+        "forecast_start": forecast_start,
+        "forecast_end": forecast_end,
+        "forecast_days": len(df_forecast),
+        "annual_total_p50": float(df_forecast["p50"].sum()),
+        "annual_total_p80": float(df_forecast["p80"].sum()),
+        "annual_total_p90": float(df_forecast["p90"].sum()),
+        "spike_days_adjusted": spike_days_adjusted,
+        "calibration_mode": calibration_mode_used,
+        "outputs": {
+            "forecast_daily": output_daily_path,
+            "rollups_ordering": output_ordering_path,
+            "rollups_scheduling": output_scheduling_path,
+            "run_log": str(reports_dir / f"run_log_{slug}.json"),
+        },
     }
     # Save run log with slug
     run_log_path = str(reports_dir / f"run_log_{slug}.json")
     reports_dir.mkdir(parents=True, exist_ok=True)
-    with open(run_log_path, 'w') as f:
+    with open(run_log_path, "w") as f:
         json.dump(run_log, f, indent=2)
     logger.info(f"Saved run metadata to {run_log_path}")
+
+    # Write a stable pointer to the latest run log (exact copy of slugged log)
+    run_log_latest_path = reports_dir / "run_log.json"
+    with open(run_log_latest_path, "w") as f:
+        json.dump(run_log, f, indent=2)
+    logger.info(f"Saved stable pointer to {run_log_latest_path}")
 
     # Generate rollups (aligned to operations)
     logger.info("Generating rollups...")
 
-    snapshot_date = datetime.now().strftime('%Y-%m-%d')
+    snapshot_date = datetime.now().strftime("%Y-%m-%d")
 
     df_forecast_roll = df_forecast.copy()
-    df_forecast_roll['ds'] = pd.to_datetime(df_forecast_roll['ds'])
-    df_forecast_roll = df_forecast_roll.sort_values('ds')
+    df_forecast_roll["ds"] = pd.to_datetime(df_forecast_roll["ds"])
+    df_forecast_roll = df_forecast_roll.sort_values("ds")
 
-    forecast_end = df_forecast_roll['ds'].max()
+    forecast_end = df_forecast_roll["ds"].max()
 
     def sum_window(start: pd.Timestamp, end: pd.Timestamp) -> dict:
         end_capped = min(end, forecast_end)
-        mask = (df_forecast_roll['ds'] >= start) & (df_forecast_roll['ds'] <= end_capped)
-        totals = df_forecast_roll.loc[mask, ['p50', 'p80', 'p90']].sum()
+        mask = (df_forecast_roll["ds"] >= start) & (df_forecast_roll["ds"] <= end_capped)
+        totals = df_forecast_roll.loc[mask, ["p50", "p80", "p90"]].sum()
         notes = []
         if end_capped < end:
             notes.append("window_truncated_at_forecast_end")
         return {
-            'snapshot_date': snapshot_date,
-            'coverage_start': start.strftime('%Y-%m-%d'),
-            'coverage_end': end_capped.strftime('%Y-%m-%d'),
-            'p50': float(totals['p50']),
-            'p80': float(totals['p80']),
-            'p90': float(totals['p90']),
-            'notes': ";".join(notes) if notes else ""
+            "snapshot_date": snapshot_date,
+            "coverage_start": start.strftime("%Y-%m-%d"),
+            "coverage_end": end_capped.strftime("%Y-%m-%d"),
+            "p50": float(totals["p50"]),
+            "p80": float(totals["p80"]),
+            "p90": float(totals["p90"]),
+            "notes": ";".join(notes) if notes else "",
         }
 
     # Ordering rollups:
@@ -545,20 +594,20 @@ def generate_2026_forecast(
     ordering_rows = []
 
     # Sundays (dayofweek: Mon=0 ... Sun=6)
-    sunday_starts = df_forecast_roll[df_forecast_roll['ds'].dt.dayofweek == 6]['ds'].tolist()
+    sunday_starts = df_forecast_roll[df_forecast_roll["ds"].dt.dayofweek == 6]["ds"].tolist()
     for start in sunday_starts:
         row = sum_window(start, start + pd.Timedelta(days=6))
-        row['notes'] = (row['notes'] + (";" if row['notes'] else "") + "order_cycle=sun_sat")
+        row["notes"] = row["notes"] + (";" if row["notes"] else "") + "order_cycle=sun_sat"
         ordering_rows.append(row)
 
     # Wednesdays (dayofweek=2)
-    wed_starts = df_forecast_roll[df_forecast_roll['ds'].dt.dayofweek == 2]['ds'].tolist()
+    wed_starts = df_forecast_roll[df_forecast_roll["ds"].dt.dayofweek == 2]["ds"].tolist()
     for start in wed_starts:
         row = sum_window(start, start + pd.Timedelta(days=7))
-        row['notes'] = (row['notes'] + (";" if row['notes'] else "") + "order_cycle=wed_wed")
+        row["notes"] = row["notes"] + (";" if row["notes"] else "") + "order_cycle=wed_wed"
         ordering_rows.append(row)
 
-    df_ordering = pd.DataFrame(ordering_rows).sort_values(['coverage_start', 'notes'])
+    df_ordering = pd.DataFrame(ordering_rows).sort_values(["coverage_start", "notes"])
     Path(output_ordering_path).parent.mkdir(parents=True, exist_ok=True)
     df_ordering.to_csv(output_ordering_path, index=False)
     logger.info(f"Saved ordering rollup to {output_ordering_path}")
@@ -569,10 +618,10 @@ def generate_2026_forecast(
     sched_starts = wed_starts  # Wednesday starts
     for start in sched_starts:
         row = sum_window(start, start + pd.Timedelta(days=6))
-        row['notes'] = (row['notes'] + (";" if row['notes'] else "") + "schedule_week=wed_tue")
+        row["notes"] = row["notes"] + (";" if row["notes"] else "") + "schedule_week=wed_tue"
         scheduling_rows.append(row)
 
-    df_scheduling = pd.DataFrame(scheduling_rows).sort_values(['coverage_start'])
+    df_scheduling = pd.DataFrame(scheduling_rows).sort_values(["coverage_start"])
     Path(output_scheduling_path).parent.mkdir(parents=True, exist_ok=True)
     df_scheduling.to_csv(output_scheduling_path, index=False)
     logger.info(f"Saved scheduling rollup to {output_scheduling_path}")
@@ -596,5 +645,9 @@ if __name__ == "__main__":
     # Verify guardrails
     print("\n=== Guardrail Checks ===")
     print(f"Negative forecasts: {(df_forecast['p50'] < 0).sum()}")
-    print(f"Monotonicity violations: {((df_forecast['p50'] > df_forecast['p80']) | (df_forecast['p80'] > df_forecast['p90'])).sum()}")
-    print(f"Closed days with non-zero forecast: {((df_forecast['is_closed']) & (df_forecast['p50'] > 0)).sum()}")
+    print(
+        f"Monotonicity violations: {((df_forecast['p50'] > df_forecast['p80']) | (df_forecast['p80'] > df_forecast['p90'])).sum()}"
+    )
+    print(
+        f"Closed days with non-zero forecast: {((df_forecast['is_closed']) & (df_forecast['p50'] > 0)).sum()}"
+    )

@@ -1,10 +1,8 @@
 """End-to-end daily forecasting pipeline."""
 
 import argparse
-import json
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from forecasting.backtest.rolling_origin import run_baseline_backtest
@@ -26,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 def run_pipeline(
-    config_path: str = 'configs/config.yaml',
+    config_path: str = "configs/config.yaml",
     issue_date: str = None,
     run_backtests: bool = False,
-    skip_chronos: bool = True,
+    skip_chronos: bool = False,
     dry_run: bool = False,
 ):
     """
@@ -62,10 +60,12 @@ def run_pipeline(
     config_hash = file_sha256(resolved_config_path)
     logger.info(f"Config hash: {config_hash[:8]}...")
 
-    # Get forecast window
-    from forecasting.utils.runtime import get_forecast_window
+    # Get forecast window and slug
+    from forecasting.utils.runtime import forecast_slug, get_forecast_window
+
     forecast_start, forecast_end = get_forecast_window(config)
-    logger.info(f"Forecast period: {forecast_start} to {forecast_end}")
+    slug = forecast_slug(forecast_start, forecast_end)
+    logger.info(f"Forecast period: {forecast_start} to {forecast_end} (slug: {slug})")
 
     try:
         # Step 1: Ingest sales
@@ -90,15 +90,16 @@ def run_pipeline(
         # Step 5: Compute uplift priors
         logger.info("\n[5/9] Computing event uplift priors...")
         import pandas as pd
+
         df_sales = pd.read_parquet("data/processed/fact_sales_daily.parquet")
-        ds_max = df_sales['ds'].max().strftime('%Y-%m-%d')
+        ds_max = df_sales["ds"].max().strftime("%Y-%m-%d")
         df_uplift = compute_event_uplift_priors(ds_max=ds_max)
         df_uplift.to_parquet("data/processed/event_uplift_priors.parquet", index=False)
         generate_uplift_report(df_uplift)
 
         # Step 6: Build datasets
         logger.info("\n[6/9] Building supervised datasets and inference features...")
-        build_train_datasets()
+        build_train_datasets(config=config)
         build_inference_features_2026(config)
 
         if dry_run:
@@ -142,10 +143,10 @@ def run_pipeline(
         logger.info("\n[8/9] Fitting ensemble model...")
 
         backtest_preds_paths = {
-            'seasonal_naive_weekly': 'outputs/backtests/preds_baselines.parquet',
-            'weekday_rolling_median': 'outputs/backtests/preds_baselines.parquet',
-            'gbm_short': 'outputs/backtests/preds_gbm_short.parquet',
-            'gbm_long': 'outputs/backtests/preds_gbm_long.parquet',
+            "seasonal_naive_weekly": "outputs/backtests/preds_baselines.parquet",
+            "weekday_rolling_median": "outputs/backtests/preds_baselines.parquet",
+            "gbm_short": "outputs/backtests/preds_gbm_short.parquet",
+            "gbm_long": "outputs/backtests/preds_gbm_long.parquet",
         }
 
         # Check if backtest predictions exist
@@ -158,14 +159,12 @@ def run_pipeline(
 
         ensemble = EnsembleModel()
         ensemble.fit(available_preds)
-        ensemble.save('outputs/models/ensemble_weights.csv')
+        ensemble.save("outputs/models/ensemble_weights.csv")
 
         # Step 9: Generate forecast
         logger.info(f"\n[9/9] Generating forecast for {forecast_start} to {forecast_end}...")
         df_forecast = generate_2026_forecast(
-            config=config,
-            config_path=str(resolved_config_path),
-            config_hash=config_hash
+            config=config, config_path=str(resolved_config_path), config_hash=config_hash
         )
 
         logger.info("\n" + "=" * 80)
@@ -179,28 +178,9 @@ def run_pipeline(
         logger.info("  - outputs/forecasts/rollups_ordering.csv")
         logger.info("  - outputs/forecasts/rollups_scheduling.csv")
 
-        # Minimal run log for traceability (non-blocking)
-        try:
-            Path("outputs/reports").mkdir(parents=True, exist_ok=True)
-            run_log = {
-                "run_utc": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "data_through": str(df_forecast["data_through"].iloc[0]) if "data_through" in df_forecast.columns and len(df_forecast) else None,
-                "forecast_rows": int(len(df_forecast)),
-                "forecast_total_p50": float(df_forecast["p50"].sum()) if len(df_forecast) else None,
-                "forecast_closed_days": int(df_forecast["is_closed"].sum()) if "is_closed" in df_forecast.columns and len(df_forecast) else None,
-                "outputs": {
-                    "forecast_daily_2026": "outputs/forecasts/forecast_daily_2026.csv",
-                    "rollups_ordering": "outputs/forecasts/rollups_ordering.csv",
-                    "rollups_scheduling": "outputs/forecasts/rollups_scheduling.csv",
-                    "ensemble_weights": "outputs/models/ensemble_weights.csv",
-                },
-                "backtests_ran": bool(run_backtests),
-            }
-            with open("outputs/reports/run_log.json", "w", encoding="utf-8") as f:
-                json.dump(run_log, f, indent=2)
-            logger.info("  ✓ Wrote outputs/reports/run_log.json")
-        except Exception as e:
-            logger.warning(f"Could not write run_log.json: {e}")
+        # Run log is written by generate_forecast() in export.py
+        # (both slugged run_log_{slug}.json and stable run_log.json pointer)
+        logger.info(f"  ✓ Run log written by export.py: outputs/reports/run_log_{slug}.json")
 
         # Optional: compute ensemble backtest metrics (requires backtests outputs)
         if run_backtests:
@@ -256,7 +236,7 @@ def run_pipeline(
                         index=["cutoff_date", "target_date", "horizon", "y"],
                         columns="model_name",
                         values="p50",
-                        aggfunc="first"
+                        aggfunc="first",
                     )
 
                     for (cutoff_date, target_date, horizon, y), row in df_p.iterrows():
@@ -269,15 +249,17 @@ def run_pipeline(
                         else:
                             norm_w = raw_w / raw_w.sum()
                         p50 = float((avail.values * norm_w).sum())
-                        ens_rows.append({
-                            "cutoff_date": cutoff_date,
-                            "target_date": target_date,
-                            "horizon": int(horizon),
-                            "y": float(y),
-                            "p50": p50,
-                            "horizon_bucket": bucket,
-                            "model_name": "ensemble",
-                        })
+                        ens_rows.append(
+                            {
+                                "cutoff_date": cutoff_date,
+                                "target_date": target_date,
+                                "horizon": int(horizon),
+                                "y": float(y),
+                                "p50": p50,
+                                "horizon_bucket": bucket,
+                                "model_name": "ensemble",
+                            }
+                        )
 
                 df_ens = pd.DataFrame(ens_rows)
                 df_metrics = compute_metrics(df_ens)
@@ -292,6 +274,7 @@ def run_pipeline(
     except Exception as e:
         logger.error(f"\n✗ PIPELINE FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -303,43 +286,35 @@ def main():
     )
 
     parser.add_argument(
-        '--issue-date',
+        "--issue-date",
         type=str,
         default=None,
-        help='Issue date for forecast (YYYY-MM-DD). Defaults to last date in history.'
+        help="Issue date for forecast (YYYY-MM-DD). Defaults to last date in history.",
     )
 
     parser.add_argument(
-        '--run-backtests',
-        action='store_true',
-        help='Run backtests (computationally expensive)'
+        "--run-backtests", action="store_true", help="Run backtests (computationally expensive)"
     )
 
     parser.add_argument(
-        '--skip-chronos',
-        action='store_true',
-        help='Skip Chronos-2 integration (default: False, Chronos enabled)'
+        "--skip-chronos",
+        action="store_true",
+        help="Skip Chronos-2 integration (default: False, Chronos enabled)",
     )
 
     parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Run data prep only without training/forecasting'
+        "--dry-run", action="store_true", help="Run data prep only without training/forecasting"
     )
 
     parser.add_argument(
-        '--config',
-        type=str,
-        default='configs/config.yaml',
-        help='Path to config file'
+        "--config", type=str, default="configs/config.yaml", help="Path to config file"
     )
 
     args = parser.parse_args()
 
     # Setup logging
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
     # Run pipeline

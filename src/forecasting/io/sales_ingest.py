@@ -42,13 +42,15 @@ def ingest_sales(
 
     for col in df.columns:
         col_lower = col.lower().strip()
-        if 'date' in col_lower or col == 'yyyyMMdd':
+        if "date" in col_lower or col == "yyyyMMdd":
             date_col = col
-        elif 'net' in col_lower and 'sales' in col_lower:
+        elif "net" in col_lower and "sales" in col_lower:
             sales_col = col
 
     if date_col is None or sales_col is None:
-        raise ValueError(f"Could not identify date or sales columns. Columns: {df.columns.tolist()}")
+        raise ValueError(
+            f"Could not identify date or sales columns. Columns: {df.columns.tolist()}"
+        )
 
     logger.info(f"Identified date column: {date_col}, sales column: {sales_col}")
 
@@ -56,37 +58,37 @@ def ingest_sales(
     df_clean = pd.DataFrame()
 
     # Parse date (handle yyyyMMdd format)
-    if df[date_col].dtype == 'int64' or df[date_col].astype(str).str.match(r'^\d{8}$').all():
-        df_clean['ds'] = pd.to_datetime(df[date_col].astype(str), format='%Y%m%d')
+    if df[date_col].dtype == "int64" or df[date_col].astype(str).str.match(r"^\d{8}$").all():
+        df_clean["ds"] = pd.to_datetime(df[date_col].astype(str), format="%Y%m%d")
     else:
-        df_clean['ds'] = pd.to_datetime(df[date_col])
+        df_clean["ds"] = pd.to_datetime(df[date_col])
 
     # Parse sales (handle $ signs, commas)
-    if df[sales_col].dtype == 'object':
-        sales_str = df[sales_col].astype(str).str.replace('$', '').str.replace(',', '').str.strip()
-        df_clean['y'] = pd.to_numeric(sales_str, errors='coerce')
+    if df[sales_col].dtype == "object":
+        sales_str = df[sales_col].astype(str).str.replace("$", "").str.replace(",", "").str.strip()
+        df_clean["y"] = pd.to_numeric(sales_str, errors="coerce")
     else:
-        df_clean['y'] = pd.to_numeric(df[sales_col], errors='coerce')
+        df_clean["y"] = pd.to_numeric(df[sales_col], errors="coerce")
 
     # Drop rows with missing y
-    missing_y = df_clean['y'].isna().sum()
+    missing_y = df_clean["y"].isna().sum()
     if missing_y > 0:
         logger.warning(f"Dropping {missing_y} rows with missing/invalid sales values")
-        df_clean = df_clean.dropna(subset=['y'])
+        df_clean = df_clean.dropna(subset=["y"])
 
     # Check for duplicates
-    duplicates = df_clean['ds'].duplicated().sum()
+    duplicates = df_clean["ds"].duplicated().sum()
     if duplicates > 0:
         logger.warning(f"Found {duplicates} duplicate dates. Aggregating by sum.")
-        df_clean = df_clean.groupby('ds', as_index=False).agg({'y': 'sum'})
+        df_clean = df_clean.groupby("ds", as_index=False).agg({"y": "sum"})
 
     # Add metadata columns
-    df_clean['is_closed'] = df_clean['y'] < closed_threshold
-    df_clean['data_source'] = 'toast_export'
-    df_clean['notes'] = ''
+    df_clean["is_closed"] = df_clean["y"] < closed_threshold
+    df_clean["data_source"] = "toast_export"
+    df_clean["notes"] = ""
 
     # Sort by date
-    df_clean = df_clean.sort_values('ds').reset_index(drop=True)
+    df_clean = df_clean.sort_values("ds").reset_index(drop=True)
 
     # Save to parquet
     output_path_obj = Path(output_path)
@@ -98,8 +100,7 @@ def ingest_sales(
 
 
 def generate_audit_report(
-    df: pd.DataFrame,
-    output_path: str = "outputs/reports/data_audit_summary.md"
+    df: pd.DataFrame, output_path: str = "outputs/reports/data_audit_summary.md"
 ) -> None:
     """
     Generate audit report for sales data.
@@ -112,27 +113,27 @@ def generate_audit_report(
         Path to output markdown report
     """
     # Basic stats
-    ds_min = df['ds'].min()
-    ds_max = df['ds'].max()
+    ds_min = df["ds"].min()
+    ds_max = df["ds"].max()
     row_count = len(df)
-    closed_count = df['is_closed'].sum()
+    closed_count = df["is_closed"].sum()
 
     # Top 10 sales days
-    top_10 = df.nlargest(10, 'y')[['ds', 'y']].copy()
-    top_10['ds'] = top_10['ds'].dt.strftime('%Y-%m-%d')
+    top_10 = df.nlargest(10, "y")[["ds", "y"]].copy()
+    top_10["ds"] = top_10["ds"].dt.strftime("%Y-%m-%d")
 
     # Check for missing dates
-    date_range = pd.date_range(start=ds_min, end=ds_max, freq='D')
-    missing_dates = date_range.difference(df['ds'])
+    date_range = pd.date_range(start=ds_min, end=ds_max, freq="D")
+    missing_dates = date_range.difference(df["ds"])
 
     # Build report
     report = f"""# Sales Data Audit Summary
 
-Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 ## Overview
 
-- **Date Range**: {ds_min.strftime('%Y-%m-%d')} to {ds_max.strftime('%Y-%m-%d')}
+- **Date Range**: {ds_min.strftime("%Y-%m-%d")} to {ds_max.strftime("%Y-%m-%d")}
 - **Total Days**: {row_count}
 - **Closed Days** (sales < $200): {closed_count}
 - **Open Days**: {row_count - closed_count}

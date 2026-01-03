@@ -25,7 +25,7 @@ def compute_spike_uplift_priors(
     ds_max: pd.Timestamp = None,
     min_observations: int = 1,  # Changed from 2 to 1 in V5.0
     shrinkage_factor: float = 0.5,
-    max_multiplier: float = 2.5  # V5.1: Configurable cap
+    max_multiplier: float = 2.5,  # V5.1: Configurable cap
 ) -> pd.DataFrame:
     """
     Compute uplift multipliers for spike-day flags using historical data.
@@ -47,40 +47,47 @@ def compute_spike_uplift_priors(
         DataFrame with spike_flag, uplift_multiplier, confidence, n_obs, baseline_method
     """
     if ds_max is not None:
-        df_sales = df_sales[df_sales['ds'] <= ds_max].copy()
+        df_sales = df_sales[df_sales["ds"] <= ds_max].copy()
     else:
         df_sales = df_sales.copy()
 
     # Filter to open days only
-    df_open = df_sales[~df_sales['is_closed']].copy()
+    df_open = df_sales[~df_sales["is_closed"]].copy()
 
     if len(df_open) == 0:
         logger.warning("No open days in sales history")
-        return pd.DataFrame(columns=['spike_flag', 'uplift_multiplier', 'confidence', 'n_obs', 'baseline_method'])
+        return pd.DataFrame(
+            columns=["spike_flag", "uplift_multiplier", "confidence", "n_obs", "baseline_method"]
+        )
 
     # Add DOW and month if not present
-    if 'dow' not in df_open.columns:
-        df_open['dow'] = df_open['ds'].dt.dayofweek
-    if 'month' not in df_open.columns:
-        df_open['month'] = df_open['ds'].dt.month
+    if "dow" not in df_open.columns:
+        df_open["dow"] = df_open["ds"].dt.dayofweek
+    if "month" not in df_open.columns:
+        df_open["month"] = df_open["ds"].dt.month
 
     # Spike flags to compute uplift for
     spike_flags = [
-        'is_black_friday',
-        'is_thanksgiving_day',
-        'is_day_after_thanksgiving',
-        'is_memorial_day',
-        'is_memorial_day_weekend',
-        'is_labor_day',
-        'is_labor_day_weekend',
-        'is_independence_day',
-        'is_christmas_eve',
-        'is_day_after_christmas',
-        'is_year_end_week',
+        "is_black_friday",
+        "is_thanksgiving_day",
+        "is_day_after_thanksgiving",
+        "is_memorial_day",
+        "is_memorial_day_weekend",
+        "is_labor_day",
+        "is_labor_day_weekend",
+        "is_independence_day",
+        "is_christmas_eve",
+        "is_day_after_christmas",
+        "is_year_end_week",
     ]
 
     # Filter to flags that exist in data
     spike_flags = [f for f in spike_flags if f in df_open.columns]
+
+    # Ensure spike flags are boolean for safe masking
+    for flag in spike_flags:
+        if flag in df_open.columns:
+            df_open[flag] = df_open[flag].astype(bool)
 
     results = []
 
@@ -91,56 +98,55 @@ def compute_spike_uplift_priors(
 
         if n_obs < min_observations:
             # Insufficient data, use neutral multiplier
-            results.append({
-                'spike_flag': flag,
-                'uplift_multiplier': 1.0,
-                'confidence': 'insufficient',
-                'n_obs': n_obs,
-                'baseline_method': 'none'
-            })
+            results.append(
+                {
+                    "spike_flag": flag,
+                    "uplift_multiplier": 1.0,
+                    "confidence": "insufficient",
+                    "n_obs": n_obs,
+                    "baseline_method": "none",
+                }
+            )
             continue
 
         # Compute matched baseline
         # Strategy: same DOW + same month, excluding spike days
-        spike_dow = spike_days['dow'].mode()[0] if len(spike_days) > 0 else None
-        spike_month = spike_days['month'].mode()[0] if len(spike_days) > 0 else None
+        spike_dow = spike_days["dow"].mode()[0] if len(spike_days) > 0 else None
+        spike_month = spike_days["month"].mode()[0] if len(spike_days) > 0 else None
 
         # Try matched baseline: same DOW + same month, excluding spike flag
         baseline_days = df_open[
-            (df_open['dow'] == spike_dow) &
-            (df_open['month'] == spike_month) &
-            (not df_open[flag])
+            (df_open["dow"] == spike_dow) & (df_open["month"] == spike_month) & (~df_open[flag])
         ]
 
-        baseline_method = 'dow_month'
+        baseline_method = "dow_month"
 
         # Fallback 1: same DOW across all months, excluding spike flag
         if len(baseline_days) < 3:
-            baseline_days = df_open[
-                (df_open['dow'] == spike_dow) &
-                (not df_open[flag])
-            ]
-            baseline_method = 'dow_all'
+            baseline_days = df_open[(df_open["dow"] == spike_dow) & (~df_open[flag])]
+            baseline_method = "dow_all"
 
         # Fallback 2: all non-spike days (last resort)
         if len(baseline_days) < 3:
-            baseline_days = df_open[not df_open[flag]]
-            baseline_method = 'all_nonspike'
+            baseline_days = df_open[~df_open[flag]]
+            baseline_method = "all_nonspike"
 
         if len(baseline_days) == 0:
             # No baseline available, use neutral
-            results.append({
-                'spike_flag': flag,
-                'uplift_multiplier': 1.0,
-                'confidence': 'no_baseline',
-                'n_obs': n_obs,
-                'baseline_method': 'none'
-            })
+            results.append(
+                {
+                    "spike_flag": flag,
+                    "uplift_multiplier": 1.0,
+                    "confidence": "no_baseline",
+                    "n_obs": n_obs,
+                    "baseline_method": "none",
+                }
+            )
             continue
 
         # Compute raw uplift
-        spike_median = spike_days['y'].median()
-        baseline_median = baseline_days['y'].median()
+        spike_median = spike_days["y"].median()
+        baseline_median = baseline_days["y"].median()
         raw_uplift = spike_median / baseline_median if baseline_median > 0 else 1.0
 
         # Apply shrinkage toward 1.0
@@ -152,32 +158,34 @@ def compute_spike_uplift_priors(
 
         # Confidence based on sample size
         if n_obs >= 5:
-            confidence = 'high'
+            confidence = "high"
         elif n_obs >= 3:
-            confidence = 'medium'
+            confidence = "medium"
         elif n_obs >= 2:
-            confidence = 'low'
+            confidence = "low"
         else:
-            confidence = 'very_low'  # n_obs == 1
+            confidence = "very_low"  # n_obs == 1
 
-        results.append({
-            'spike_flag': flag,
-            'uplift_multiplier': capped_uplift,
-            'confidence': confidence,
-            'n_obs': n_obs,
-            'baseline_method': baseline_method
-        })
+        results.append(
+            {
+                "spike_flag": flag,
+                "uplift_multiplier": capped_uplift,
+                "confidence": confidence,
+                "n_obs": n_obs,
+                "baseline_method": baseline_method,
+            }
+        )
 
-        logger.info(f"{flag}: {n_obs} obs, baseline={baseline_method} ({len(baseline_days)} days), "
-                   f"raw={raw_uplift:.3f}, shrunk={shrunk_uplift:.3f}, final={capped_uplift:.3f}")
+        logger.info(
+            f"{flag}: {n_obs} obs, baseline={baseline_method} ({len(baseline_days)} days), "
+            f"raw={raw_uplift:.3f}, shrunk={shrunk_uplift:.3f}, final={capped_uplift:.3f}"
+        )
 
     return pd.DataFrame(results)
 
 
 def apply_spike_uplift_overlay(
-    df_forecast: pd.DataFrame,
-    df_uplift: pd.DataFrame,
-    spike_flags: list = None
+    df_forecast: pd.DataFrame, df_uplift: pd.DataFrame, spike_flags: list = None
 ) -> pd.DataFrame:
     """
     Apply spike-day uplift overlay to forecasts.
@@ -199,14 +207,14 @@ def apply_spike_uplift_overlay(
     df = df_forecast.copy()
 
     if spike_flags is None:
-        spike_flags = df_uplift['spike_flag'].tolist()
+        spike_flags = df_uplift["spike_flag"].tolist()
 
     # Create uplift lookup
-    uplift_map = dict(zip(df_uplift['spike_flag'], df_uplift['uplift_multiplier']))
+    uplift_map = dict(zip(df_uplift["spike_flag"], df_uplift["uplift_multiplier"]))
 
     # Track adjustments
-    df['adjustment_log'] = ''
-    df['adjustment_multiplier'] = 1.0
+    df["adjustment_log"] = ""
+    df["adjustment_multiplier"] = 1.0
 
     # V5.0: Compute max multiplier per row (non-compounding)
     for idx, row in df.iterrows():
@@ -228,18 +236,20 @@ def apply_spike_uplift_overlay(
             max_flag = active_flags[active_multipliers.index(max_multiplier)]
 
             # Apply multiplier
-            df.loc[idx, 'p50'] *= max_multiplier
-            df.loc[idx, 'p80'] *= max_multiplier
-            df.loc[idx, 'p90'] *= max_multiplier
-            df.loc[idx, 'adjustment_multiplier'] = max_multiplier
+            df.loc[idx, "p50"] *= max_multiplier
+            df.loc[idx, "p80"] *= max_multiplier
+            df.loc[idx, "p90"] *= max_multiplier
+            df.loc[idx, "adjustment_multiplier"] = max_multiplier
 
             # Log which flags were active and which was used
             if len(active_flags) > 1:
-                df.loc[idx, 'adjustment_log'] = f"max({','.join(active_flags)})={max_multiplier:.3f}"
+                df.loc[idx, "adjustment_log"] = (
+                    f"max({','.join(active_flags)})={max_multiplier:.3f}"
+                )
             else:
-                df.loc[idx, 'adjustment_log'] = f"{max_flag}={max_multiplier:.3f}"
+                df.loc[idx, "adjustment_log"] = f"{max_flag}={max_multiplier:.3f}"
 
-    n_adjusted = (df['adjustment_multiplier'] != 1.0).sum()
+    n_adjusted = (df["adjustment_multiplier"] != 1.0).sum()
     logger.info(f"Applied spike uplift overlay to {n_adjusted} days")
 
     return df
@@ -253,51 +263,59 @@ def save_spike_uplift_log(df_forecast: pd.DataFrame, output_path: str):
         df_forecast: Forecast with adjustment_log column
         output_path: Path to save log CSV
     """
-    adjusted = df_forecast[df_forecast['adjustment_log'] != ''].copy()
+    adjusted = df_forecast[df_forecast["adjustment_log"] != ""].copy()
 
     if len(adjusted) == 0:
         logger.info("No spike-day adjustments applied")
         return
 
     # Ensure is_closed is present (required per Step 6)
-    if 'is_closed' not in adjusted.columns:
+    if "is_closed" not in adjusted.columns:
         # Compute from p50 if missing
-        adjusted['is_closed'] = (adjusted['p50'] == 0)
+        adjusted["is_closed"] = adjusted["p50"] == 0
         logger.warning("is_closed not in forecast, computed from p50==0")
 
     # Add is_adjusted column (multiplier != 1.0 AND not closed)
-    adjusted['is_adjusted'] = (
-        (adjusted['adjustment_multiplier'] != 1.0) &
-        (~adjusted['is_closed'])
-    )
+    adjusted["is_adjusted"] = (adjusted["adjustment_multiplier"] != 1.0) & (~adjusted["is_closed"])
 
     # Extract flags_hit from adjustment_log
     # adjustment_log format: "flag1,flag2: multiplier" or "flag=multiplier"
-    adjusted['flags_hit'] = adjusted['adjustment_log'].apply(
-        lambda x: x.split('=')[0].strip() if '=' in x else x.split(':')[0].strip()
+    adjusted["flags_hit"] = adjusted["adjustment_log"].apply(
+        lambda x: x.split("=")[0].strip() if "=" in x else x.split(":")[0].strip()
     )
 
     # Select columns for log
-    cols = ['ds', 'p50', 'adjustment_multiplier', 'is_closed', 'is_adjusted', 'flags_hit', 'adjustment_log']
+    cols = [
+        "ds",
+        "p50",
+        "adjustment_multiplier",
+        "is_closed",
+        "is_adjusted",
+        "flags_hit",
+        "adjustment_log",
+    ]
     log_df = adjusted[cols].copy()
-    log_df = log_df.sort_values('ds')
+    log_df = log_df.sort_values("ds")
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     log_df.to_csv(output_path, index=False)
 
-    n_actually_adjusted = log_df['is_adjusted'].sum()
-    logger.info(f"Saved spike uplift log to {output_path} ({len(log_df)} days with flags, {n_actually_adjusted} actually adjusted)")
+    n_actually_adjusted = log_df["is_adjusted"].sum()
+    logger.info(
+        f"Saved spike uplift log to {output_path} ({len(log_df)} days with flags, {n_actually_adjusted} actually adjusted)"
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test spike uplift computation
     import sys
-    sys.path.insert(0, '/home/ubuntu/forecasting/src')
+
+    sys.path.insert(0, "/home/ubuntu/forecasting/src")
 
     from forecasting.features.spike_days import add_spike_day_features
 
     # Load sales data
-    df_sales = pd.read_parquet('/home/ubuntu/forecasting/data/processed/fact_sales_daily.parquet')
+    df_sales = pd.read_parquet("/home/ubuntu/forecasting/data/processed/fact_sales_daily.parquet")
 
     # Add spike-day features
     df_sales = add_spike_day_features(df_sales)
@@ -309,5 +327,5 @@ if __name__ == '__main__':
     print(df_uplift.to_string(index=False))
 
     # Save
-    df_uplift.to_csv('/home/ubuntu/forecasting/outputs/models/spike_uplift_priors.csv', index=False)
+    df_uplift.to_csv("/home/ubuntu/forecasting/outputs/models/spike_uplift_priors.csv", index=False)
     print("\nSaved to outputs/models/spike_uplift_priors.csv")

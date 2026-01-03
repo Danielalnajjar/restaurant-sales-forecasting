@@ -47,27 +47,29 @@ class SeasonalNaiveWeekly:
             lag_date = target_date - pd.Timedelta(days=7)
 
             # Check if lag_date is in history
-            lag_row = self.history[self.history['ds'] == lag_date]
+            lag_row = self.history[self.history["ds"] == lag_date]
 
             if len(lag_row) > 0:
                 # Use actual historical value
-                p50 = lag_row.iloc[0]['y']
+                p50 = lag_row.iloc[0]["y"]
             elif lag_date in self.forecasts:
                 # Use previously forecasted value (recursive)
                 p50 = self.forecasts[lag_date]
             else:
                 # No data available, use mean
-                p50 = self.history[~self.history['is_closed']]['y'].mean()
+                p50 = self.history[~self.history["is_closed"]]["y"].mean()
 
             # Store forecast for future recursive use
             self.forecasts[target_date] = p50
 
-            predictions.append({
-                'target_date': target_date,
-                'p50': p50,
-                'p80': p50,  # Simple baseline: use same value
-                'p90': p50,
-            })
+            predictions.append(
+                {
+                    "target_date": target_date,
+                    "p50": p50,
+                    "p80": p50,  # Simple baseline: use same value
+                    "p90": p50,
+                }
+            )
 
         return pd.DataFrame(predictions)
 
@@ -111,23 +113,24 @@ class WeekdayRollingMedian:
 
             # Get last N same-weekday observations
             same_dow = self.history[
-                (self.history['ds'].dt.dayofweek == target_dow) &
-                (~self.history['is_closed'])
-            ].sort_values('ds', ascending=False)
+                (self.history["ds"].dt.dayofweek == target_dow) & (~self.history["is_closed"])
+            ].sort_values("ds", ascending=False)
 
             if len(same_dow) > 0:
                 recent = same_dow.head(self.n_weeks)
-                p50 = recent['y'].median()
+                p50 = recent["y"].median()
             else:
                 # Fallback to overall median
-                p50 = self.history[~self.history['is_closed']]['y'].median()
+                p50 = self.history[~self.history["is_closed"]]["y"].median()
 
-            predictions.append({
-                'target_date': target_date,
-                'p50': p50,
-                'p80': p50,
-                'p90': p50,
-            })
+            predictions.append(
+                {
+                    "target_date": target_date,
+                    "p50": p50,
+                    "p80": p50,
+                    "p90": p50,
+                }
+            )
 
         return pd.DataFrame(predictions)
 
@@ -140,9 +143,9 @@ if __name__ == "__main__":
 
     # Test seasonal naive
     model_sn = SeasonalNaiveWeekly()
-    model_sn.fit(df_sales[df_sales['ds'] <= '2025-12-01'])
+    model_sn.fit(df_sales[df_sales["ds"] <= "2025-12-01"])
 
-    target_dates = pd.date_range(start='2025-12-02', end='2025-12-15', freq='D').tolist()
+    target_dates = pd.date_range(start="2025-12-02", end="2025-12-15", freq="D").tolist()
     preds_sn = model_sn.predict(target_dates)
 
     print("Seasonal Naive predictions:")
@@ -150,7 +153,7 @@ if __name__ == "__main__":
 
     # Test weekday median
     model_wm = WeekdayRollingMedian()
-    model_wm.fit(df_sales[df_sales['ds'] <= '2025-12-01'])
+    model_wm.fit(df_sales[df_sales["ds"] <= "2025-12-01"])
     preds_wm = model_wm.predict(target_dates)
 
     print("\nWeekday Median predictions:")

@@ -55,8 +55,7 @@ def resolve_config_path(config_path: str | None) -> Path:
             return c.resolve()
 
     raise FileNotFoundError(
-        "Could not locate config.yaml. Tried: "
-        + ", ".join(str(c) for c in candidates)
+        "Could not locate config.yaml. Tried: " + ", ".join(str(c) for c in candidates)
     )
 
 
@@ -87,13 +86,15 @@ def get_forecast_window(config: Dict[str, Any]) -> Tuple[str, str]:
 
     # Convert datetime.date to string if needed (YAML parser returns date objects)
     if isinstance(fs, datetime.date):
-        fs = fs.strftime('%Y-%m-%d')
+        fs = fs.strftime("%Y-%m-%d")
     if isinstance(fe, datetime.date):
-        fe = fe.strftime('%Y-%m-%d')
+        fe = fe.strftime("%Y-%m-%d")
 
     # Validation
     if not isinstance(fs, str) or not isinstance(fe, str):
-        raise ValueError("forecast_start/forecast_end must be strings or dates in YYYY-MM-DD format")
+        raise ValueError(
+            "forecast_start/forecast_end must be strings or dates in YYYY-MM-DD format"
+        )
     if fe < fs:
         raise ValueError(f"forecast_end ({fe}) must be >= forecast_start ({fs})")
     return fs, fe
@@ -103,7 +104,11 @@ def forecast_slug(forecast_start: str, forecast_end: str) -> str:
     """
     Naming slug used in output artifacts. If full-year, use YYYY; else YYYYMMDD_YYYYMMDD.
     """
-    if forecast_start.endswith("-01-01") and forecast_end.endswith("-12-31") and forecast_start[:4] == forecast_end[:4]:
+    if (
+        forecast_start.endswith("-01-01")
+        and forecast_end.endswith("-12-31")
+        and forecast_start[:4] == forecast_end[:4]
+    ):
         return forecast_start[:4]
     return forecast_start.replace("-", "") + "_" + forecast_end.replace("-", "")
 
@@ -148,7 +153,7 @@ def load_config(config_path: str | None = None) -> Dict[str, Any]:
         raise ValueError(f"Failed to parse configuration file {resolved_path}: {e}")
 
     # Validate required fields
-    required_fields = ['forecast_start', 'forecast_end', 'short_horizons', 'long_horizons']
+    required_fields = ["forecast_start", "forecast_end", "short_horizons", "long_horizons"]
     missing_fields = [f for f in required_fields if f not in config]
     if missing_fields:
         raise ValueError(f"Configuration missing required fields: {missing_fields}")
@@ -168,11 +173,7 @@ def get_git_commit() -> str:
     """
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=True
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=5, check=True
         )
         return result.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):

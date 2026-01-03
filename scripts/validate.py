@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Validation script for CI/CD (Step 9 from ChatGPT 5.2 Pro's plan).
+Validation script for CI/CD.
 
 Runs:
 1. pytest (all tests)
 2. ruff check (linting)
-3. Pipeline dry run (no backtests)
-4. Validate outputs exist
+3. Config validation
+4. Required outputs validation
 
 Exits with non-zero code on any failure.
 """
@@ -54,7 +54,7 @@ def main():
         [sys.executable, "-m", "pytest", str(root / "tests"), "-v"],
         "pytest (unit tests)"
     )
-    all_passed = all_passed and passed
+    all_passed &= passed
     
     # 2. Run ruff check
     try:
@@ -62,63 +62,73 @@ def main():
             [sys.executable, "-m", "ruff", "check", str(root / "src")],
             "ruff check (linting)"
         )
-        all_passed = all_passed and passed
+        all_passed &= passed
     except FileNotFoundError:
         print("⚠️  WARNING: ruff not installed, skipping linting check")
     
-    # 3. Run pipeline (dry run - skip Chronos for speed)
+    # 3. Validate config loads
     print(f"\n{'='*80}")
-    print("Running: Pipeline dry run")
+    print("Running: Config validation")
     print('='*80)
     
-    # Note: We skip the full pipeline run here because it takes too long
-    # Instead, we'll just validate that the config loads
     try:
-        from forecasting.utils.runtime import resolve_config_path, load_yaml
-        config_path = resolve_config_path(None)
-        config = load_yaml(config_path)
-        print(f"✓ Config loaded successfully from {config_path}")
+        from forecasting.utils.runtime import load_config
+        config = load_config()
+        print(f"✓ Config loaded successfully")
         print(f"  Forecast: {config.get('forecast_start')} to {config.get('forecast_end')}")
     except Exception as e:
         print(f"❌ Config loading failed: {e}")
         all_passed = False
     
-    # 4. Validate outputs exist (from most recent run)
+    # 4. Validate required outputs exist
     print(f"\n{'='*80}")
-    print("Validating outputs from most recent run")
+    print("Validating required outputs from most recent run")
     print('='*80)
     
     outputs_dir = root / "outputs"
     forecasts_dir = outputs_dir / "forecasts"
     reports_dir = outputs_dir / "reports"
+    models_dir = outputs_dir / "models"
     
     # Find most recent forecast file
     if forecasts_dir.exists():
         forecast_files = list(forecasts_dir.glob("forecast_daily_*.csv"))
+        # Filter out baseline files
+        forecast_files = [f for f in forecast_files if "BASELINE" not in f.name]
+        
         if forecast_files:
             latest_forecast = max(forecast_files, key=lambda p: p.stat().st_mtime)
-            check_file_exists(latest_forecast, "Daily forecast")
             
             # Extract slug from filename
             slug = latest_forecast.stem.replace("forecast_daily_", "")
             
-            # Check for corresponding run_log
-            run_log = reports_dir / f"run_log_{slug}.json"
-            check_file_exists(run_log, f"Run log for {slug}")
+            print(f"Validating outputs for slug: {slug}")
             
-            # Check for growth calibration log (if enabled)
-            growth_log = reports_dir / "growth_calibration_log.csv"
-            if growth_log.exists():
-                check_file_exists(growth_log, "Growth calibration log")
+            # Required outputs
+            all_passed &= check_file_exists(latest_forecast, f"Daily forecast (forecast_daily_{slug}.csv)")
+            all_passed &= check_file_exists(reports_dir / f"run_log_{slug}.json", f"Run log (run_log_{slug}.json)")
+            all_passed &= check_file_exists(forecasts_dir / f"rollups_ordering_{slug}.csv", f"Ordering rollup (rollups_ordering_{slug}.csv)")
+            all_passed &= check_file_exists(forecasts_dir / f"rollups_scheduling_{slug}.csv", f"Scheduling rollup (rollups_scheduling_{slug}.csv)")
+            all_passed &= check_file_exists(models_dir / f"ensemble_weights_{slug}.csv", f"Ensemble weights (ensemble_weights_{slug}.csv)")
             
-            # Check for spike uplift log
-            spike_log = reports_dir / "spike_uplift_log.csv"
+            # Optional but recommended outputs (don't fail if missing, just warn)
+            spike_log = reports_dir / f"spike_uplift_log_{slug}.csv"
             if spike_log.exists():
-                check_file_exists(spike_log, "Spike uplift log")
+                check_file_exists(spike_log, f"Spike uplift log (spike_uplift_log_{slug}.csv)")
+            else:
+                print(f"⚠️  Optional: Spike uplift log not found (spike_uplift_log_{slug}.csv)")
+            
+            growth_log = reports_dir / f"growth_calibration_log_{slug}.csv"
+            if growth_log.exists():
+                check_file_exists(growth_log, f"Growth calibration log (growth_calibration_log_{slug}.csv)")
+            else:
+                print(f"⚠️  Optional: Growth calibration log not found (growth_calibration_log_{slug}.csv)")
         else:
-            print("⚠️  No forecast files found (run pipeline first)")
+            print("❌ No forecast files found (run pipeline first)")
+            all_passed = False
     else:
-        print("⚠️  No outputs directory found (run pipeline first)")
+        print("❌ No outputs directory found (run pipeline first)")
+        all_passed = False
     
     # Final result
     print(f"\n{'='*80}")

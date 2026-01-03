@@ -30,30 +30,37 @@ class GBMShortHorizon:
             Training data with features and y label
         """
         # Identify feature columns (exclude metadata and label)
-        exclude_cols = ['issue_date', 'target_date', 'horizon', 'y', 'is_closed',
-                       'open_time_local', 'close_time_local']
+        exclude_cols = [
+            "issue_date",
+            "target_date",
+            "horizon",
+            "y",
+            "is_closed",
+            "open_time_local",
+            "close_time_local",
+        ]
         self.feature_cols = [col for col in df_train.columns if col not in exclude_cols]
 
         logger.info(f"Training GBM short-horizon with {len(self.feature_cols)} features")
         logger.info(f"Training samples: {len(df_train)}")
 
         X_train = df_train[self.feature_cols].fillna(0)
-        y_train = df_train['y'].values
+        y_train = df_train["y"].values
 
         # Train one model per quantile
         for q in self.quantiles:
             logger.info(f"Training quantile {q}...")
 
             params = {
-                'objective': 'quantile',
-                'alpha': q,
-                'metric': 'quantile',
-                'num_leaves': 31,
-                'learning_rate': 0.05,
-                'feature_fraction': 0.8,
-                'bagging_fraction': 0.8,
-                'bagging_freq': 5,
-                'verbose': -1,
+                "objective": "quantile",
+                "alpha": q,
+                "metric": "quantile",
+                "num_leaves": 31,
+                "learning_rate": 0.05,
+                "feature_fraction": 0.8,
+                "bagging_fraction": 0.8,
+                "bagging_freq": 5,
+                "verbose": -1,
             }
 
             train_data = lgb.Dataset(X_train, label=y_train)
@@ -63,7 +70,7 @@ class GBMShortHorizon:
                 train_data,
                 num_boost_round=200,
                 valid_sets=[train_data],
-                callbacks=[lgb.early_stopping(stopping_rounds=20, verbose=False)]
+                callbacks=[lgb.early_stopping(stopping_rounds=20, verbose=False)],
             )
 
             self.models[q] = model
@@ -91,10 +98,10 @@ class GBMShortHorizon:
 
         X_pred = df_features[self.feature_cols].fillna(0)
 
-        predictions = df_features[['target_date']].copy()
+        predictions = df_features[["target_date"]].copy()
 
         for q in self.quantiles:
-            col_name = f'p{int(q*100)}'
+            col_name = f"p{int(q * 100)}"
             predictions[col_name] = self.models[q].predict(X_pred)
 
         return predictions
@@ -102,23 +109,26 @@ class GBMShortHorizon:
     def save(self, path: str):
         """Save model to disk."""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, 'wb') as f:
-            pickle.dump({
-                'models': self.models,
-                'feature_cols': self.feature_cols,
-                'quantiles': self.quantiles,
-            }, f)
+        with open(path, "wb") as f:
+            pickle.dump(
+                {
+                    "models": self.models,
+                    "feature_cols": self.feature_cols,
+                    "quantiles": self.quantiles,
+                },
+                f,
+            )
         logger.info(f"Saved GBM short model to {path}")
 
     @classmethod
     def load(cls, path: str):
         """Load model from disk."""
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             data = pickle.load(f)
 
-        model = cls(quantiles=data['quantiles'])
-        model.models = data['models']
-        model.feature_cols = data['feature_cols']
+        model = cls(quantiles=data["quantiles"])
+        model.models = data["models"]
+        model.feature_cols = data["feature_cols"]
 
         logger.info(f"Loaded GBM short model from {path}")
         return model
@@ -144,12 +154,14 @@ def run_gbm_short_backtest(
     df_hours = pd.read_parquet(hours_history_path)
     df_events = pd.read_parquet(events_history_path)
 
-    ds_min = df_sales['ds'].min()
-    ds_max = df_sales['ds'].max()
+    ds_min = df_sales["ds"].min()
+    ds_max = df_sales["ds"].max()
 
     # Define cutoff dates
     first_cutoff = ds_min + pd.Timedelta(days=min_train_days)
-    cutoff_dates = pd.date_range(start=first_cutoff, end=ds_max - pd.Timedelta(days=14), freq=f'{step_days}D')
+    cutoff_dates = pd.date_range(
+        start=first_cutoff, end=ds_max - pd.Timedelta(days=14), freq=f"{step_days}D"
+    )
 
     logger.info(f"Running backtest with {len(cutoff_dates)} cutoffs")
 
@@ -160,8 +172,8 @@ def run_gbm_short_backtest(
 
         # Train data: issue_date <= cutoff AND target_date <= cutoff
         df_train = df_train_full[
-            (df_train_full['issue_date'] <= cutoff_date) &
-            (df_train_full['target_date'] <= cutoff_date)
+            (df_train_full["issue_date"] <= cutoff_date)
+            & (df_train_full["target_date"] <= cutoff_date)
         ]
 
         if len(df_train) < 100:
@@ -176,11 +188,11 @@ def run_gbm_short_backtest(
         target_dates = pd.date_range(
             start=cutoff_date + pd.Timedelta(days=1),
             end=cutoff_date + pd.Timedelta(days=14),
-            freq='D'
+            freq="D",
         ).tolist()
 
         # Filter to dates that exist in sales
-        target_dates = [d for d in target_dates if d in df_sales['ds'].values]
+        target_dates = [d for d in target_dates if d in df_sales["ds"].values]
 
         if len(target_dates) == 0:
             continue
@@ -189,27 +201,27 @@ def run_gbm_short_backtest(
         df_features = build_features_short(
             issue_date=cutoff_date,
             target_dates=target_dates,
-            df_sales=df_sales[df_sales['ds'] <= cutoff_date],
+            df_sales=df_sales[df_sales["ds"] <= cutoff_date],
             df_hours=df_hours,
             df_events=df_events,
         )
 
         # Predict
         preds = model.predict(df_features)
-        preds['cutoff_date'] = cutoff_date
-        preds['issue_date'] = cutoff_date
-        preds['model_name'] = 'gbm_short'
+        preds["cutoff_date"] = cutoff_date
+        preds["issue_date"] = cutoff_date
+        preds["model_name"] = "gbm_short"
 
         # Add labels
         preds = preds.merge(
-            df_sales[['ds', 'y', 'is_closed']].rename(columns={'ds': 'target_date'}),
-            on='target_date',
-            how='left'
+            df_sales[["ds", "y", "is_closed"]].rename(columns={"ds": "target_date"}),
+            on="target_date",
+            how="left",
         )
 
         # Add horizon and bucket
-        preds['horizon'] = (preds['target_date'] - preds['issue_date']).dt.days
-        preds['horizon_bucket'] = preds['horizon'].apply(lambda h: '1-7' if h <= 7 else '8-14')
+        preds["horizon"] = (preds["target_date"] - preds["issue_date"]).dt.days
+        preds["horizon_bucket"] = preds["horizon"].apply(lambda h: "1-7" if h <= 7 else "8-14")
 
         all_preds.append(preds)
 
@@ -220,8 +232,9 @@ def run_gbm_short_backtest(
 
     # Compute metrics
     from forecasting.backtest.rolling_origin import compute_metrics
+
     df_metrics = compute_metrics(df_preds)
-    df_metrics['model_name'] = 'gbm_short'
+    df_metrics["model_name"] = "gbm_short"
 
     # Save outputs
     Path(output_metrics_path).parent.mkdir(parents=True, exist_ok=True)
@@ -247,11 +260,13 @@ if __name__ == "__main__":
 
     # Compare with baseline
     df_baseline = pd.read_csv("outputs/backtests/metrics_baselines.csv")
-    df_baseline_sn = df_baseline[df_baseline['model_name'] == 'seasonal_naive_weekly']
+    df_baseline_sn = df_baseline[df_baseline["model_name"] == "seasonal_naive_weekly"]
 
     print("\n=== Comparison with Seasonal Naive ===")
-    for bucket in ['1-7', '8-14']:
-        gbm_wmape = df_metrics[df_metrics['horizon_bucket'] == bucket]['wmape'].values[0]
-        sn_wmape = df_baseline_sn[df_baseline_sn['horizon_bucket'] == bucket]['wmape'].values[0]
+    for bucket in ["1-7", "8-14"]:
+        gbm_wmape = df_metrics[df_metrics["horizon_bucket"] == bucket]["wmape"].values[0]
+        sn_wmape = df_baseline_sn[df_baseline_sn["horizon_bucket"] == bucket]["wmape"].values[0]
         improvement = (sn_wmape - gbm_wmape) / sn_wmape * 100
-        print(f"{bucket}: GBM {gbm_wmape:.3f} vs SN {sn_wmape:.3f} ({improvement:+.1f}% improvement)")
+        print(
+            f"{bucket}: GBM {gbm_wmape:.3f} vs SN {sn_wmape:.3f} ({improvement:+.1f}% improvement)"
+        )

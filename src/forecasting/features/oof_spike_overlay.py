@@ -6,6 +6,7 @@ FIXED in V4.2 based on ChatGPT 5.2 Pro audit:
 - Non-compounding multipliers (max, not product)
 - Shrinkage and caps for stability
 """
+
 import logging
 from typing import Dict
 
@@ -21,9 +22,9 @@ def compute_oof_spike_multipliers(
     df_spike_flags: pd.DataFrame,
     id_col: str = "ds",
     min_observations: int = 1,  # Allow single-observation holidays (data-limited)
-    shrinkage: float = 0.65,    # Shrink toward 1.0 for stability
-    cap_low: float = 0.85,      # Prevent over-correction downward
-    cap_high: float = 1.80      # Prevent over-correction upward
+    shrinkage: float = 0.65,  # Shrink toward 1.0 for stability
+    cap_low: float = 0.85,  # Prevent over-correction downward
+    cap_high: float = 1.80,  # Prevent over-correction upward
 ) -> Dict[str, float]:
     """
     Compute multipliers from OOF residual ratios on spike days.
@@ -99,8 +100,11 @@ def compute_oof_spike_multipliers(
     flags[id_col] = pd.to_datetime(flags[id_col])
 
     # ---- Merge ----
-    merged = preds.merge(actuals[[id_col, "y"]], on=id_col, how="inner") \
-                  .merge(flags, on=id_col, how="left").fillna(0)
+    merged = (
+        preds.merge(actuals[[id_col, "y"]], on=id_col, how="inner")
+        .merge(flags, on=id_col, how="left")
+        .fillna(0)
+    )
 
     merged["ratio"] = np.where(merged["yhat_p50"] > 0, merged["y"] / merged["yhat_p50"], np.nan)
 
@@ -113,7 +117,9 @@ def compute_oof_spike_multipliers(
         rows = rows[np.isfinite(rows["ratio"])]
 
         if len(rows) < min_observations:
-            logger.warning(f"Spike flag '{flag}' has only {len(rows)} observations (min: {min_observations}), skipping")
+            logger.warning(
+                f"Spike flag '{flag}' has only {len(rows)} observations (min: {min_observations}), skipping"
+            )
             continue
 
         # Compute raw multiplier (median is robust to outliers)
@@ -127,7 +133,9 @@ def compute_oof_spike_multipliers(
 
         multipliers[flag] = capped
 
-        logger.info(f"Spike flag '{flag}': {len(rows)} obs, raw={raw:.3f}, shrunk={shrunk:.3f}, capped={capped:.3f}")
+        logger.info(
+            f"Spike flag '{flag}': {len(rows)} obs, raw={raw:.3f}, shrunk={shrunk:.3f}, capped={capped:.3f}"
+        )
 
     return multipliers
 
@@ -136,7 +144,7 @@ def apply_spike_overlay(
     df_forecast: pd.DataFrame,
     df_spike_flags: pd.DataFrame,
     multipliers: Dict[str, float],
-    id_col: str = "ds"
+    id_col: str = "ds",
 ) -> pd.DataFrame:
     """
     Apply a SINGLE overlay multiplier per day.
@@ -183,7 +191,9 @@ def apply_spike_overlay(
     # Merge spike flags (handle different column names)
     flag_cols = list(multipliers.keys())
     if forecast_date_col == flags_date_col:
-        df = df.merge(df_spike_flags[[flags_date_col] + flag_cols], on=forecast_date_col, how="left").fillna(0)
+        df = df.merge(
+            df_spike_flags[[flags_date_col] + flag_cols], on=forecast_date_col, how="left"
+        ).fillna(0)
     else:
         # Rename to match before merge
         df_flags_temp = df_spike_flags[[flags_date_col] + flag_cols].copy()
@@ -220,9 +230,7 @@ def apply_spike_overlay(
 
 
 def generate_oof_overlay_report(
-    multipliers: Dict[str, float],
-    df_forecast: pd.DataFrame,
-    output_path: str
+    multipliers: Dict[str, float], df_forecast: pd.DataFrame, output_path: str
 ) -> None:
     """
     Generate a report of OOF overlay multipliers and affected dates.
@@ -267,7 +275,9 @@ def generate_oof_overlay_report(
                 p50_before = p50_after / mult if p50_after != "N/A" else "N/A"
 
                 if p50_after != "N/A":
-                    report.append(f"| {date} | {mult:.3f}x | ${p50_before:,.0f} | ${p50_after:,.0f} |")
+                    report.append(
+                        f"| {date} | {mult:.3f}x | ${p50_before:,.0f} | ${p50_after:,.0f} |"
+                    )
                 else:
                     report.append(f"| {date} | {mult:.3f}x | N/A | N/A |")
         else:
@@ -275,7 +285,7 @@ def generate_oof_overlay_report(
     else:
         report.append("Overlay not applied (overlay_multiplier column not found)")
 
-    with open(output_path, 'w') as f:
-        f.write('\n'.join(report))
+    with open(output_path, "w") as f:
+        f.write("\n".join(report))
 
     logger.info(f"OOF overlay report saved to {output_path}")

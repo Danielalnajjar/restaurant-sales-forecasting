@@ -30,12 +30,19 @@ class GBMLongHorizon:
             Training data with features and y label (NO LAG FEATURES)
         """
         # Identify feature columns (exclude metadata and label)
-        exclude_cols = ['issue_date', 'target_date', 'horizon', 'y', 'is_closed',
-                       'open_time_local', 'close_time_local']
+        exclude_cols = [
+            "issue_date",
+            "target_date",
+            "horizon",
+            "y",
+            "is_closed",
+            "open_time_local",
+            "close_time_local",
+        ]
         self.feature_cols = [col for col in df_train.columns if col not in exclude_cols]
 
         # Verify no lag features
-        lag_cols = [col for col in self.feature_cols if 'lag' in col or 'roll' in col]
+        lag_cols = [col for col in self.feature_cols if "lag" in col or "roll" in col]
         if lag_cols:
             raise ValueError(f"Long-horizon model should not have lag features: {lag_cols}")
 
@@ -43,22 +50,22 @@ class GBMLongHorizon:
         logger.info(f"Training samples: {len(df_train)}")
 
         X_train = df_train[self.feature_cols].fillna(0)
-        y_train = df_train['y'].values
+        y_train = df_train["y"].values
 
         # Train one model per quantile
         for q in self.quantiles:
             logger.info(f"Training quantile {q}...")
 
             params = {
-                'objective': 'quantile',
-                'alpha': q,
-                'metric': 'quantile',
-                'num_leaves': 31,
-                'learning_rate': 0.05,
-                'feature_fraction': 0.8,
-                'bagging_fraction': 0.8,
-                'bagging_freq': 5,
-                'verbose': -1,
+                "objective": "quantile",
+                "alpha": q,
+                "metric": "quantile",
+                "num_leaves": 31,
+                "learning_rate": 0.05,
+                "feature_fraction": 0.8,
+                "bagging_fraction": 0.8,
+                "bagging_freq": 5,
+                "verbose": -1,
             }
 
             train_data = lgb.Dataset(X_train, label=y_train)
@@ -68,7 +75,7 @@ class GBMLongHorizon:
                 train_data,
                 num_boost_round=200,
                 valid_sets=[train_data],
-                callbacks=[lgb.early_stopping(stopping_rounds=20, verbose=False)]
+                callbacks=[lgb.early_stopping(stopping_rounds=20, verbose=False)],
             )
 
             self.models[q] = model
@@ -96,10 +103,10 @@ class GBMLongHorizon:
 
         X_pred = df_features[self.feature_cols].fillna(0)
 
-        predictions = df_features[['target_date']].copy()
+        predictions = df_features[["target_date"]].copy()
 
         for q in self.quantiles:
-            col_name = f'p{int(q*100)}'
+            col_name = f"p{int(q * 100)}"
             predictions[col_name] = self.models[q].predict(X_pred)
 
         return predictions
@@ -107,23 +114,26 @@ class GBMLongHorizon:
     def save(self, path: str):
         """Save model to disk."""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with open(path, 'wb') as f:
-            pickle.dump({
-                'models': self.models,
-                'feature_cols': self.feature_cols,
-                'quantiles': self.quantiles,
-            }, f)
+        with open(path, "wb") as f:
+            pickle.dump(
+                {
+                    "models": self.models,
+                    "feature_cols": self.feature_cols,
+                    "quantiles": self.quantiles,
+                },
+                f,
+            )
         logger.info(f"Saved GBM long model to {path}")
 
     @classmethod
     def load(cls, path: str):
         """Load model from disk."""
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             data = pickle.load(f)
 
-        model = cls(quantiles=data['quantiles'])
-        model.models = data['models']
-        model.feature_cols = data['feature_cols']
+        model = cls(quantiles=data["quantiles"])
+        model.models = data["models"]
+        model.feature_cols = data["feature_cols"]
 
         logger.info(f"Loaded GBM long model from {path}")
         return model
@@ -150,12 +160,14 @@ def run_gbm_long_backtest(
     df_hours = pd.read_parquet(hours_history_path)
     df_events = pd.read_parquet(events_history_path)
 
-    ds_min = df_sales['ds'].min()
-    ds_max = df_sales['ds'].max()
+    ds_min = df_sales["ds"].min()
+    ds_max = df_sales["ds"].max()
 
     # Define cutoff dates (fewer cutoffs for long horizon)
     first_cutoff = ds_min + pd.Timedelta(days=min_train_days)
-    cutoff_dates = pd.date_range(start=first_cutoff, end=ds_max - pd.Timedelta(days=30), freq=f'{step_days}D')
+    cutoff_dates = pd.date_range(
+        start=first_cutoff, end=ds_max - pd.Timedelta(days=30), freq=f"{step_days}D"
+    )
 
     logger.info(f"Running backtest with {len(cutoff_dates)} cutoffs")
 
@@ -166,8 +178,8 @@ def run_gbm_long_backtest(
 
         # Train data: issue_date <= cutoff AND target_date <= cutoff
         df_train = df_train_full[
-            (df_train_full['issue_date'] <= cutoff_date) &
-            (df_train_full['target_date'] <= cutoff_date)
+            (df_train_full["issue_date"] <= cutoff_date)
+            & (df_train_full["target_date"] <= cutoff_date)
         ]
 
         if len(df_train) < 500:
@@ -188,11 +200,11 @@ def run_gbm_long_backtest(
         target_dates = pd.date_range(
             start=cutoff_date + pd.Timedelta(days=15),
             end=cutoff_date + pd.Timedelta(days=h_eval),
-            freq='D'
+            freq="D",
         ).tolist()
 
         # Filter to dates that exist in sales
-        target_dates = [d for d in target_dates if d in df_sales['ds'].values]
+        target_dates = [d for d in target_dates if d in df_sales["ds"].values]
 
         if len(target_dates) == 0:
             continue
@@ -207,31 +219,31 @@ def run_gbm_long_backtest(
 
         # Predict
         preds = model.predict(df_features)
-        preds['cutoff_date'] = cutoff_date
-        preds['issue_date'] = cutoff_date
-        preds['model_name'] = 'gbm_long'
+        preds["cutoff_date"] = cutoff_date
+        preds["issue_date"] = cutoff_date
+        preds["model_name"] = "gbm_long"
 
         # Add labels
         preds = preds.merge(
-            df_sales[['ds', 'y', 'is_closed']].rename(columns={'ds': 'target_date'}),
-            on='target_date',
-            how='left'
+            df_sales[["ds", "y", "is_closed"]].rename(columns={"ds": "target_date"}),
+            on="target_date",
+            how="left",
         )
 
         # Add horizon and bucket
-        preds['horizon'] = (preds['target_date'] - preds['issue_date']).dt.days
+        preds["horizon"] = (preds["target_date"] - preds["issue_date"]).dt.days
 
         def assign_bucket(h):
             if 15 <= h <= 30:
-                return '15-30'
+                return "15-30"
             elif 31 <= h <= 90:
-                return '31-90'
+                return "31-90"
             elif 91 <= h <= 380:
-                return '91-380'
+                return "91-380"
             else:
-                return 'other'
+                return "other"
 
-        preds['horizon_bucket'] = preds['horizon'].apply(assign_bucket)
+        preds["horizon_bucket"] = preds["horizon"].apply(assign_bucket)
 
         all_preds.append(preds)
 
@@ -242,8 +254,9 @@ def run_gbm_long_backtest(
 
     # Compute metrics
     from forecasting.backtest.rolling_origin import compute_metrics
+
     df_metrics = compute_metrics(df_preds)
-    df_metrics['model_name'] = 'gbm_long'
+    df_metrics["model_name"] = "gbm_long"
 
     # Save outputs
     Path(output_metrics_path).parent.mkdir(parents=True, exist_ok=True)
@@ -269,12 +282,14 @@ if __name__ == "__main__":
 
     # Compare with baseline
     df_baseline = pd.read_csv("outputs/backtests/metrics_baselines.csv")
-    df_baseline_wm = df_baseline[df_baseline['model_name'] == 'weekday_rolling_median']
+    df_baseline_wm = df_baseline[df_baseline["model_name"] == "weekday_rolling_median"]
 
     print("\n=== Comparison with Weekday Median ===")
-    for bucket in ['15-30', '31-90', '91-380']:
-        if bucket in df_metrics['horizon_bucket'].values:
-            gbm_wmape = df_metrics[df_metrics['horizon_bucket'] == bucket]['wmape'].values[0]
-            wm_wmape = df_baseline_wm[df_baseline_wm['horizon_bucket'] == bucket]['wmape'].values[0]
+    for bucket in ["15-30", "31-90", "91-380"]:
+        if bucket in df_metrics["horizon_bucket"].values:
+            gbm_wmape = df_metrics[df_metrics["horizon_bucket"] == bucket]["wmape"].values[0]
+            wm_wmape = df_baseline_wm[df_baseline_wm["horizon_bucket"] == bucket]["wmape"].values[0]
             improvement = (wm_wmape - gbm_wmape) / wm_wmape * 100
-            print(f"{bucket}: GBM {gbm_wmape:.3f} vs WM {wm_wmape:.3f} ({improvement:+.1f}% improvement)")
+            print(
+                f"{bucket}: GBM {gbm_wmape:.3f} vs WM {wm_wmape:.3f} ({improvement:+.1f}% improvement)"
+            )

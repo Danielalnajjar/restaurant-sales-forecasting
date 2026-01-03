@@ -50,30 +50,30 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
     df = df.copy()
 
     # Ensure ds is datetime
-    if not pd.api.types.is_datetime64_any_dtype(df['ds']):
-        df['ds'] = pd.to_datetime(df['ds'])
+    if not pd.api.types.is_datetime64_any_dtype(df["ds"]):
+        df["ds"] = pd.to_datetime(df["ds"])
 
     # Get unique years in data
-    years = sorted(df['ds'].dt.year.unique())
+    years = sorted(df["ds"].dt.year.unique())
 
     # Build holiday date lookup
     holidays = {}
     for year in range(min(years) - 1, max(years) + 2):  # Include adjacent years
-        holidays[f'thanksgiving_{year}'] = get_thanksgiving_date(year)
-        holidays[f'christmas_{year}'] = get_christmas_date(year)
-        holidays[f'new_year_{year}'] = get_new_year_date(year)
+        holidays[f"thanksgiving_{year}"] = get_thanksgiving_date(year)
+        holidays[f"christmas_{year}"] = get_christmas_date(year)
+        holidays[f"new_year_{year}"] = get_new_year_date(year)
 
     # Initialize features
-    df['days_until_thanksgiving'] = clamp_days
-    df['days_since_thanksgiving'] = clamp_days
-    df['days_until_christmas'] = clamp_days
-    df['days_since_christmas'] = clamp_days
-    df['days_until_new_year'] = clamp_days
-    df['days_since_new_year'] = clamp_days
+    df["days_until_thanksgiving"] = clamp_days
+    df["days_since_thanksgiving"] = clamp_days
+    df["days_until_christmas"] = clamp_days
+    df["days_since_christmas"] = clamp_days
+    df["days_until_new_year"] = clamp_days
+    df["days_since_new_year"] = clamp_days
 
     # Compute distances for each row
     for idx, row in df.iterrows():
-        ds = row['ds']
+        ds = row["ds"]
         year = ds.year
 
         # Thanksgiving - find closest
@@ -89,8 +89,8 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
             elif days_diff == 0:  # On the holiday itself
                 min_until = 0
                 min_since = 0
-        df.loc[idx, 'days_until_thanksgiving'] = min(min_until, clamp_days)
-        df.loc[idx, 'days_since_thanksgiving'] = min(min_since, clamp_days)
+        df.loc[idx, "days_until_thanksgiving"] = min(min_until, clamp_days)
+        df.loc[idx, "days_since_thanksgiving"] = min(min_since, clamp_days)
 
         # Christmas - find closest
         min_until = clamp_days
@@ -105,8 +105,8 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
             elif days_diff == 0:  # On the holiday itself
                 min_until = 0
                 min_since = 0
-        df.loc[idx, 'days_until_christmas'] = min(min_until, clamp_days)
-        df.loc[idx, 'days_since_christmas'] = min(min_since, clamp_days)
+        df.loc[idx, "days_until_christmas"] = min(min_until, clamp_days)
+        df.loc[idx, "days_since_christmas"] = min(min_since, clamp_days)
 
         # New Year - find closest
         min_until = clamp_days
@@ -121,8 +121,8 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
             elif days_diff == 0:  # On the holiday itself
                 min_until = 0
                 min_since = 0
-        df.loc[idx, 'days_until_new_year'] = min(min_until, clamp_days)
-        df.loc[idx, 'days_since_new_year'] = min(min_since, clamp_days)
+        df.loc[idx, "days_until_new_year"] = min(min_until, clamp_days)
+        df.loc[idx, "days_since_new_year"] = min(min_since, clamp_days)
 
     return df
 
@@ -131,26 +131,36 @@ def test_holiday_distance_features():
     """Test holiday distance features on key dates."""
     # Test dates
     test_dates = [
-        '2025-11-28',  # Black Friday 2025
-        '2025-11-27',  # Thanksgiving 2025
-        '2025-12-24',  # Christmas Eve 2025
-        '2025-12-25',  # Christmas 2025
-        '2025-12-31',  # New Year's Eve 2025
-        '2026-01-01',  # New Year 2026
-        '2026-11-26',  # Thanksgiving 2026
-        '2026-11-27',  # Black Friday 2026
+        "2025-11-28",  # Black Friday 2025
+        "2025-11-27",  # Thanksgiving 2025
+        "2025-12-24",  # Christmas Eve 2025
+        "2025-12-25",  # Christmas 2025
+        "2025-12-31",  # New Year's Eve 2025
+        "2026-01-01",  # New Year 2026
+        "2026-11-26",  # Thanksgiving 2026
+        "2026-11-27",  # Black Friday 2026
     ]
 
-    df_test = pd.DataFrame({'ds': pd.to_datetime(test_dates)})
+    df_test = pd.DataFrame({"ds": pd.to_datetime(test_dates)})
     df_test = add_holiday_distance_features(df_test)
 
     print("Holiday Distance Features Test:")
-    print(df_test[['ds', 'days_until_thanksgiving', 'days_since_thanksgiving',
-                    'days_until_christmas', 'days_since_christmas',
-                    'days_until_new_year', 'days_since_new_year']].to_string(index=False))
+    print(
+        df_test[
+            [
+                "ds",
+                "days_until_thanksgiving",
+                "days_since_thanksgiving",
+                "days_until_christmas",
+                "days_since_christmas",
+                "days_until_new_year",
+                "days_since_new_year",
+            ]
+        ].to_string(index=False)
+    )
 
     return df_test
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_holiday_distance_features()

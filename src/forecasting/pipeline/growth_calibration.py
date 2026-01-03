@@ -58,25 +58,25 @@ def apply_growth_calibration(
     """
     # Make copies to avoid modifying inputs
     df = df_forecast.copy()
-    df['ds'] = pd.to_datetime(df['ds'])
+    df["ds"] = pd.to_datetime(df["ds"])
 
     df_hist = df_history.copy()
-    df_hist['ds'] = pd.to_datetime(df_hist['ds'])
+    df_hist["ds"] = pd.to_datetime(df_hist["ds"])
 
     # Default excluded spike flags (if not provided)
     if excluded_spike_flags is None:
         excluded_spike_flags = [
-            'is_black_friday',
-            'is_year_end_week',
-            'is_memorial_day',
-            'is_labor_day',
-            'is_independence_day',
-            'is_christmas_eve',
-            'is_day_after_christmas'
+            "is_black_friday",
+            "is_year_end_week",
+            "is_memorial_day",
+            "is_labor_day",
+            "is_independence_day",
+            "is_christmas_eve",
+            "is_day_after_christmas",
         ]
 
     # Get baseline year (most recent COMPLETE year in history)
-    max_date = df_hist['ds'].max()
+    max_date = df_hist["ds"].max()
     max_year = max_date.year
 
     # If max_date is not Dec 31, use previous year as baseline
@@ -84,51 +84,51 @@ def apply_growth_calibration(
         baseline_year = max_year
     else:
         baseline_year = max_year - 1
-        logger.info(f"Max date {max_date} is not Dec 31, using baseline_year={baseline_year} (last complete year)")
+        logger.info(
+            f"Max date {max_date} is not Dec 31, using baseline_year={baseline_year} (last complete year)"
+        )
 
-    df_hist_year = df_hist[df_hist['ds'].dt.year == baseline_year].copy()
+    df_hist_year = df_hist[df_hist["ds"].dt.year == baseline_year].copy()
 
-    logger.info(f"Growth calibration mode={mode}, baseline_year={baseline_year}, target_yoy={target_yoy_rate:+.1%}")
+    logger.info(
+        f"Growth calibration mode={mode}, baseline_year={baseline_year}, target_yoy={target_yoy_rate:+.1%}"
+    )
 
     # Identify excluded days (spike flags + closed days)
-    df['is_excluded'] = False
+    df["is_excluded"] = False
     for flag in excluded_spike_flags:
         if flag in df.columns:
-            df['is_excluded'] |= (df[flag])
+            df["is_excluded"] |= df[flag]
 
     # Also exclude closed days
-    if 'is_closed' in df.columns:
-        df['is_excluded'] |= (df['is_closed'])
+    if "is_closed" in df.columns:
+        df["is_excluded"] |= df["is_closed"]
 
     # Save before state for logging
-    df_before = df[['ds', 'p50', 'p80', 'p90']].copy()
-    df_before.columns = ['ds', 'p50_before', 'p80_before', 'p90_before']
+    df_before = df[["ds", "p50", "p80", "p90"]].copy()
+    df_before.columns = ["ds", "p50_before", "p80_before", "p90_before"]
 
     # Apply calibration based on mode
     if mode == "annual":
-        df = _apply_annual_calibration(
-            df, df_hist_year, target_yoy_rate, min_scale, max_scale
-        )
+        df = _apply_annual_calibration(df, df_hist_year, target_yoy_rate, min_scale, max_scale)
     elif mode == "monthly":
-        df = _apply_monthly_calibration(
-            df, df_hist_year, target_yoy_rate, min_scale, max_scale
-        )
+        df = _apply_monthly_calibration(df, df_hist_year, target_yoy_rate, min_scale, max_scale)
     else:
         raise ValueError(f"Invalid mode: {mode}. Must be 'annual' or 'monthly'")
 
     # Build calibration log
-    df_log = df[['ds', 'is_excluded']].copy()
-    df_log['month'] = df_log['ds'].dt.month
-    df_log = df_log.merge(df_before, on='ds', how='left')
-    df_log['p50_after'] = df['p50']
-    df_log['p80_after'] = df['p80']
-    df_log['p90_after'] = df['p90']
-    df_log['calibration_scale'] = df['calibration_scale']
-    df_log['mode'] = mode
-    df_log['baseline_year'] = baseline_year
+    df_log = df[["ds", "is_excluded"]].copy()
+    df_log["month"] = df_log["ds"].dt.month
+    df_log = df_log.merge(df_before, on="ds", how="left")
+    df_log["p50_after"] = df["p50"]
+    df_log["p80_after"] = df["p80"]
+    df_log["p90_after"] = df["p90"]
+    df_log["calibration_scale"] = df["calibration_scale"]
+    df_log["mode"] = mode
+    df_log["baseline_year"] = baseline_year
 
     # Clean up temporary columns
-    df = df.drop(columns=['is_excluded'])
+    df = df.drop(columns=["is_excluded"])
 
     return df, df_log
 
@@ -138,31 +138,31 @@ def _apply_annual_calibration(
     df_hist_year: pd.DataFrame,
     target_yoy_rate: float,
     min_scale: float,
-    max_scale: float
+    max_scale: float,
 ) -> pd.DataFrame:
     """Apply single scale factor to all non-excluded days."""
 
     # Compute baseline total (exclude closed days if present)
-    if 'is_closed' in df_hist_year.columns:
-        baseline_total = df_hist_year[~df_hist_year['is_closed']]['y'].sum()
+    if "is_closed" in df_hist_year.columns:
+        baseline_total = df_hist_year[~df_hist_year["is_closed"]]["y"].sum()
     else:
-        baseline_total = df_hist_year['y'].sum()
+        baseline_total = df_hist_year["y"].sum()
 
     if baseline_total <= 0:
         logger.warning("Baseline total is zero or negative, skipping calibration")
-        df['calibration_scale'] = 1.0
+        df["calibration_scale"] = 1.0
         return df
 
     # Compute target total
     target_total = baseline_total * (1 + target_yoy_rate)
 
     # Compute current forecast totals
-    current_total_excluded = df[df['is_excluded']]['p50'].sum()
-    current_total_nonexcluded = df[~df['is_excluded']]['p50'].sum()
+    current_total_excluded = df[df["is_excluded"]]["p50"].sum()
+    current_total_nonexcluded = df[~df["is_excluded"]]["p50"].sum()
 
     if current_total_nonexcluded <= 0:
         logger.warning("No non-excluded days to calibrate, skipping")
-        df['calibration_scale'] = 1.0
+        df["calibration_scale"] = 1.0
         return df
 
     # Compute scale factor
@@ -176,15 +176,17 @@ def _apply_annual_calibration(
         logger.warning(f"Annual scale clamped: raw={raw_scale:.3f}, clamped={clamped_scale:.3f}")
 
     # Apply scaling
-    mask_nonexcluded = ~df['is_excluded']
-    df.loc[mask_nonexcluded, 'p50'] *= clamped_scale
-    df.loc[mask_nonexcluded, 'p80'] *= clamped_scale
-    df.loc[mask_nonexcluded, 'p90'] *= clamped_scale
+    mask_nonexcluded = ~df["is_excluded"]
+    df.loc[mask_nonexcluded, "p50"] *= clamped_scale
+    df.loc[mask_nonexcluded, "p80"] *= clamped_scale
+    df.loc[mask_nonexcluded, "p90"] *= clamped_scale
 
-    df['calibration_scale'] = 1.0
-    df.loc[mask_nonexcluded, 'calibration_scale'] = clamped_scale
+    df["calibration_scale"] = 1.0
+    df.loc[mask_nonexcluded, "calibration_scale"] = clamped_scale
 
-    logger.info(f"Annual calibration: baseline=${baseline_total:,.0f}, target=${target_total:,.0f}, scale={clamped_scale:.3f}")
+    logger.info(
+        f"Annual calibration: baseline=${baseline_total:,.0f}, target=${target_total:,.0f}, scale={clamped_scale:.3f}"
+    )
 
     return df
 
@@ -194,24 +196,24 @@ def _apply_monthly_calibration(
     df_hist_year: pd.DataFrame,
     target_yoy_rate: float,
     min_scale: float,
-    max_scale: float
+    max_scale: float,
 ) -> pd.DataFrame:
     """Apply per-month scale factors to hit target growth for each month."""
 
     # Compute historical monthly totals (baseline year)
-    df_hist_year['month'] = df_hist_year['ds'].dt.month
+    df_hist_year["month"] = df_hist_year["ds"].dt.month
 
     # Exclude closed days from baseline if present
-    if 'is_closed' in df_hist_year.columns:
-        hist_month_totals = df_hist_year[~df_hist_year['is_closed']].groupby('month')['y'].sum()
+    if "is_closed" in df_hist_year.columns:
+        hist_month_totals = df_hist_year[~df_hist_year["is_closed"]].groupby("month")["y"].sum()
     else:
-        hist_month_totals = df_hist_year.groupby('month')['y'].sum()
+        hist_month_totals = df_hist_year.groupby("month")["y"].sum()
 
     # Add month column to forecast
-    df['month'] = df['ds'].dt.month
+    df["month"] = df["ds"].dt.month
 
     # Initialize calibration_scale
-    df['calibration_scale'] = 1.0
+    df["calibration_scale"] = 1.0
 
     # Process each month
     for month in range(1, 13):
@@ -224,12 +226,12 @@ def _apply_monthly_calibration(
         target_month_total = hist_month_total * (1 + target_yoy_rate)
 
         # Current forecast totals for this month
-        mask_month = (df['month'] == month)
-        mask_month_excluded = mask_month & df['is_excluded']
-        mask_month_nonexcluded = mask_month & ~df['is_excluded']
+        mask_month = df["month"] == month
+        mask_month_excluded = mask_month & df["is_excluded"]
+        mask_month_nonexcluded = mask_month & ~df["is_excluded"]
 
-        current_excluded_total = df[mask_month_excluded]['p50'].sum()
-        current_nonexcluded_total = df[mask_month_nonexcluded]['p50'].sum()
+        current_excluded_total = df[mask_month_excluded]["p50"].sum()
+        current_nonexcluded_total = df[mask_month_nonexcluded]["p50"].sum()
 
         if current_nonexcluded_total <= 0:
             logger.warning(f"Month {month}: No non-excluded days, skipping")
@@ -243,49 +245,53 @@ def _apply_monthly_calibration(
         clamped_scale_m = np.clip(raw_scale_m, min_scale, max_scale)
 
         if raw_scale_m != clamped_scale_m:
-            logger.warning(f"Month {month}: scale clamped from {raw_scale_m:.3f} to {clamped_scale_m:.3f}")
+            logger.warning(
+                f"Month {month}: scale clamped from {raw_scale_m:.3f} to {clamped_scale_m:.3f}"
+            )
 
         # Apply scaling to non-excluded days in this month
         n_scaled = mask_month_nonexcluded.sum()
-        df.loc[mask_month_nonexcluded, 'p50'] *= clamped_scale_m
-        df.loc[mask_month_nonexcluded, 'p80'] *= clamped_scale_m
-        df.loc[mask_month_nonexcluded, 'p90'] *= clamped_scale_m
-        df.loc[mask_month_nonexcluded, 'calibration_scale'] = clamped_scale_m
+        df.loc[mask_month_nonexcluded, "p50"] *= clamped_scale_m
+        df.loc[mask_month_nonexcluded, "p80"] *= clamped_scale_m
+        df.loc[mask_month_nonexcluded, "p90"] *= clamped_scale_m
+        df.loc[mask_month_nonexcluded, "calibration_scale"] = clamped_scale_m
 
-        logger.info(f"Month {month:2d}: baseline=${hist_month_total:,.0f}, target=${target_month_total:,.0f}, "
-                   f"scale={clamped_scale_m:.3f}, scaled {n_scaled} days")
+        logger.info(
+            f"Month {month:2d}: baseline=${hist_month_total:,.0f}, target=${target_month_total:,.0f}, "
+            f"scale={clamped_scale_m:.3f}, scaled {n_scaled} days"
+        )
 
     # Verify final totals
-    final_total = df['p50'].sum()
+    final_total = df["p50"].sum()
     baseline_total = hist_month_totals.sum()
     final_growth = (final_total / baseline_total) - 1
 
-    logger.info(f"Monthly calibration complete: final_total=${final_total:,.0f} ({final_growth:+.1%} vs baseline)")
+    logger.info(
+        f"Monthly calibration complete: final_total=${final_total:,.0f} ({final_growth:+.1%} vs baseline)"
+    )
 
     return df
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Test growth calibration
     import sys
-    sys.path.insert(0, '/home/ubuntu/forecasting/src')
+
+    sys.path.insert(0, "/home/ubuntu/forecasting/src")
 
     # Load actuals
-    df_actuals = pd.read_parquet('/home/ubuntu/forecasting/data/processed/fact_sales_daily.parquet')
+    df_actuals = pd.read_parquet("/home/ubuntu/forecasting/data/processed/fact_sales_daily.parquet")
 
     # Load forecast
-    df_forecast = pd.read_csv('/home/ubuntu/forecasting/outputs/forecasts/forecast_daily_2026.csv')
-    df_forecast['ds'] = pd.to_datetime(df_forecast['ds'])
+    df_forecast = pd.read_csv("/home/ubuntu/forecasting/outputs/forecasts/forecast_daily_2026.csv")
+    df_forecast["ds"] = pd.to_datetime(df_forecast["ds"])
 
     # Test annual mode
     print("=" * 80)
     print("ANNUAL MODE TEST")
     print("=" * 80)
     df_annual, log_annual = apply_growth_calibration(
-        df_forecast=df_forecast,
-        df_history=df_actuals,
-        target_yoy_rate=0.10,
-        mode="annual"
+        df_forecast=df_forecast, df_history=df_actuals, target_yoy_rate=0.10, mode="annual"
     )
     print(f"Original total: ${df_forecast['p50'].sum():,.0f}")
     print(f"Annual calibrated total: ${df_annual['p50'].sum():,.0f}")
@@ -296,13 +302,10 @@ if __name__ == '__main__':
     print("MONTHLY MODE TEST")
     print("=" * 80)
     df_monthly, log_monthly = apply_growth_calibration(
-        df_forecast=df_forecast,
-        df_history=df_actuals,
-        target_yoy_rate=0.10,
-        mode="monthly"
+        df_forecast=df_forecast, df_history=df_actuals, target_yoy_rate=0.10, mode="monthly"
     )
     print(f"Original total: ${df_forecast['p50'].sum():,.0f}")
     print(f"Monthly calibrated total: ${df_monthly['p50'].sum():,.0f}")
     print()
     print("Monthly scales:")
-    print(log_monthly.groupby('month')['calibration_scale'].first())
+    print(log_monthly.groupby("month")["calibration_scale"].first())
