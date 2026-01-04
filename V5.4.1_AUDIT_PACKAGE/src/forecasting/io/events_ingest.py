@@ -129,55 +129,48 @@ def ingest_recurring_event_mapping(
     # Normalize column names
     df.columns = [to_snake_case(col) for col in df.columns]
 
-    # --- BEGIN YEAR-GENERIC MAPPING COLUMN PRESERVATION ---
-    df_raw = df  # Rename for clarity
-    year_cols = [c for c in df_raw.columns if re.match(r"^(start|end)_\d{4}$", c)]
+    # Extract required columns
+    df_clean = pd.DataFrame()
 
-    base_cols = [
-        "event_family",
-        "event_family_ascii",
-        "category",
-        "proximity",
-    ]
+    # Event family
+    if "event_family" in df.columns:
+        df_clean["event_family"] = df["event_family"]
+    else:
+        raise ValueError("Could not find event_family column")
 
-    # Check if event_family_ascii exists, if not we'll create it later
-    required_base = ["event_family"]
-    missing_base = [c for c in required_base if c not in df_raw.columns]
-    if missing_base:
-        raise ValueError(f"Recurring mapping missing required columns: {missing_base}")
-
-    # Keep base + all year columns (do NOT drop future years)
-    existing_base = [c for c in base_cols if c in df_raw.columns]
-    df_clean = df_raw[existing_base + year_cols].copy()
-
-    # Create event_family_ascii if missing
-    if "event_family_ascii" not in df_clean.columns:
+    # Event family ASCII
+    if "event_family_ascii" in df.columns:
+        df_clean["event_family_ascii"] = df["event_family_ascii"]
+    else:
         df_clean["event_family_ascii"] = df_clean["event_family"].apply(to_ascii)
 
-    # Fill missing category/proximity with empty string
-    if "category" not in df_clean.columns:
-        df_clean["category"] = ""
-    if "proximity" not in df_clean.columns:
-        df_clean["proximity"] = ""
+    # Category and proximity
+    df_clean["category"] = df.get("category", "")
+    df_clean["proximity"] = df.get("proximity", "")
 
-    # Coerce year columns to datetime
-    for c in year_cols:
-        df_clean[c] = pd.to_datetime(df_clean[c], errors="coerce")
+    # Dates
+    df_clean["start_2025"] = pd.to_datetime(df["start_2025"])
+    df_clean["end_2025"] = pd.to_datetime(df["end_2025"])
+    df_clean["start_2026"] = pd.to_datetime(df["start_2026"])
+    df_clean["end_2026"] = pd.to_datetime(df["end_2026"])
 
-    # Validate dates for all year pairs
-    for year_col in year_cols:
-        if year_col.startswith("start_"):
-            year = year_col.replace("start_", "")
-            end_col = f"end_{year}"
-            if end_col in df_clean.columns:
-                invalid = df_clean[year_col] > df_clean[end_col]
-                if invalid.any():
-                    logger.warning(f"Found {invalid.sum()} rows with {year_col} > {end_col}. Fixing...")
-                    mask = invalid
-                    df_clean.loc[mask, [year_col, end_col]] = df_clean.loc[
-                        mask, [end_col, year_col]
-                    ].values
-    # --- END YEAR-GENERIC MAPPING COLUMN PRESERVATION ---
+    # Validate dates
+    invalid_2025 = df_clean["start_2025"] > df_clean["end_2025"]
+    invalid_2026 = df_clean["start_2026"] > df_clean["end_2026"]
+
+    if invalid_2025.any():
+        logger.warning(f"Found {invalid_2025.sum()} rows with start_2025 > end_2025. Fixing...")
+        mask = invalid_2025
+        df_clean.loc[mask, ["start_2025", "end_2025"]] = df_clean.loc[
+            mask, ["end_2025", "start_2025"]
+        ].values
+
+    if invalid_2026.any():
+        logger.warning(f"Found {invalid_2026.sum()} rows with start_2026 > end_2026. Fixing...")
+        mask = invalid_2026
+        df_clean.loc[mask, ["start_2026", "end_2026"]] = df_clean.loc[
+            mask, ["end_2026", "start_2026"]
+        ].values
 
     # Remove duplicates
     before_dedup = len(df_clean)

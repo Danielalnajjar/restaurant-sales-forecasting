@@ -1,0 +1,21 @@
+{
+  "timestamp_utc": "2026-01-03T22:43:31.658152Z",
+  "git_commit": "58fbcca5e58823df2f9ef41576ad00269bab4e1c",
+  "config_path": "/home/ubuntu/forecasting/configs/config.yaml",
+  "config_hash": "94cb5c3b77d4348414dd232346eab03139558a2a22398820b7ff63631385cc6d",
+  "data_through": "2025-12-31",
+  "forecast_start": "2026-01-01",
+  "forecast_end": "2026-12-31",
+  "forecast_days": 365,
+  "annual_total_p50": 1066144.6730000004,
+  "annual_total_p80": 1126960.188712823,
+  "annual_total_p90": 1162270.2874762458,
+  "spike_days_adjusted": 15,
+  "calibration_mode": "monthly",
+  "outputs": {
+    "forecast_daily": "/home/ubuntu/forecasting/outputs/forecasts/forecast_daily_2026.csv",
+    "rollups_ordering": "/home/ubuntu/forecasting/outputs/forecasts/rollups_ordering_2026.csv",
+    "rollups_scheduling": "/home/ubuntu/forecasting/outputs/forecasts/rollups_scheduling_2026.csv",
+    "run_log": "/home/ubuntu/forecasting/outputs/reports/run_log_2026.json"
+  }
+}

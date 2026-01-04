@@ -1,0 +1,91 @@
+# Sales Forecasting System Configuration
+
+timezone: America/Los_Angeles
+target: net_sales_excl_tax_service_delivery_fees_comps_refunds_voids
+closed_sales_threshold: 200
+
+# Forecast horizons
+short_horizons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+long_horizons: [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 368, 369, 370, 371, 372, 373, 374, 375, 376, 377, 378, 379, 380]
+
+# Forecast period
+forecast_start: 2026-01-01
+forecast_end: 2026-12-31
+
+# Quantiles to produce
+quantiles: [0.5, 0.8, 0.9]
+
+# Event feature engineering
+top_k_event_families: 40
+
+# Backtest configuration
+backtest:
+  min_train_days: 120
+  step_days: 14
+  max_horizon_days: 380
+
+# Growth calibration
+growth_calibration:
+  enabled: true
+  target_yoy_rate: 0.10  # 10% year-over-year growth
+  mode: monthly  # monthly or annual
+  min_scale: 0.80
+  max_scale: 1.25
+  excluded_spike_flags:
+    - is_black_friday
+    - is_year_end_week
+    - is_memorial_day
+    - is_labor_day
+    - is_independence_day
+    - is_christmas_eve
+    - is_day_after_christmas
+
+# Spike uplift
+spike_uplift:
+  enabled: true
+  min_observations: 1
+  shrinkage_factor: 0.25
+  max_multiplier: 1.6
+
+# File paths
+paths:
+  # Raw data
+  raw_sales: data/raw/Sales by day.csv
+  raw_hours_calendar_2026: data/raw/hours_calendar_2026_v2.csv
+  raw_hours_overrides_2026: data/raw/hours_overrides_2026_v2.csv
+  raw_events_2026_exact: data/events/events_2026_exact_dates_clean_v2.csv
+  raw_recurring_events: data/events/recurring_event_mapping_2025_2026_clean.csv
+  
+  # Processed data
+  processed_sales: data/processed/fact_sales_daily.parquet
+  processed_hours_2026: data/processed/hours_calendar_2026.parquet
+  processed_hours_history: data/processed/hours_calendar_history.parquet
+  processed_events_2026_exact: data/processed/events_2026_exact.parquet
+  processed_recurring_events: data/processed/recurring_event_mapping.parquet
+  processed_events_2026: data/processed/features/events_daily_2026.parquet
+  processed_events_history: data/processed/features/events_daily_history.parquet
+  processed_event_uplift_priors: data/processed/event_uplift_priors.parquet
+  processed_train_short: data/processed/train_short.parquet
+  processed_train_long: data/processed/train_long.parquet
+  processed_inference_short: data/processed/inference_features_short_2026.parquet
+  processed_inference_long: data/processed/inference_features_long_2026.parquet
+  
+  # Model outputs
+  models_ensemble_weights: outputs/models/ensemble_weights.csv
+  models_spike_uplift_priors: outputs/models/spike_uplift_priors.csv
+  
+  # Backtest outputs
+  backtests_baselines: outputs/backtests/preds_baselines.parquet
+  backtests_gbm_short: outputs/backtests/preds_gbm_short.parquet
+  backtests_gbm_long: outputs/backtests/preds_gbm_long.parquet
+  backtests_chronos2: outputs/backtests/preds_chronos2.parquet
+  
+  # Forecast outputs
+  forecasts_daily: outputs/forecasts/forecast_daily_2026.csv
+  forecasts_rollups_ordering: outputs/forecasts/rollups_ordering.csv
+  forecasts_rollups_scheduling: outputs/forecasts/rollups_scheduling.csv
+  
+  # Reports
+  reports_run_log: outputs/reports/run_log.json
+  reports_spike_uplift_log: outputs/reports/spike_uplift_log.csv
+  reports_growth_calibration_log: outputs/reports/growth_calibration_log.csv

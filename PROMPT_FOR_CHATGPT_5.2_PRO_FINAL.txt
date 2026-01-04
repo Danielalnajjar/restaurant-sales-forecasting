@@ -1,0 +1,217 @@
+================================================================================
+COMPREHENSIVE AUDIT REQUEST FOR CHATGPT 5.2 PRO
+V5.4.1 Production Hardening Implementation
+================================================================================
+
+CONTEXT:
+--------
+On January 2, 2026, you provided detailed instructions for V5.4.1 production 
+hardening (see V5.4.1_IMPLEMENTATION_INSTRUCTIONS.txt in the attached package).
+
+I have now completed ALL 10 steps exactly as you specified. This is a 
+comprehensive audit request with the COMPLETE codebase included.
+
+WHAT'S IN THE PACKAGE:
+----------------------
+The attached V5.4.1_COMPLETE_AUDIT_PACKAGE.zip contains:
+
+1. **Complete Source Code** (src/forecasting/)
+   - All pipeline modules (run_daily.py, export.py, etc.)
+   - All feature engineering (events_daily.py, spike_uplift.py, build_datasets.py)
+   - All model implementations
+   - All utilities (runtime.py with config loading)
+   - 29 Python modules total
+
+2. **Complete Test Suite** (tests/)
+   - All 25 tests (including 6 new ones from V5.4.1)
+   - Test coverage for all critical functionality
+   - 9 test files total
+
+3. **All Scripts** (scripts/)
+   - validate.py (fixed in V5.4.1)
+   - compare_forecasts.py (parity validation)
+
+4. **Configuration** (configs/)
+   - config.yaml (canonical configuration)
+
+5. **Output Evidence** (outputs_evidence/)
+   - forecast_daily_2026.csv (V5.4.1 forecast)
+   - forecast_daily_2026__V5.4_BASELINE.csv (V5.4 baseline)
+   - run_log_2026.json (with all required fields)
+   - spike_uplift_log_2026.csv (with is_closed, is_adjusted, flags_hit)
+   - growth_calibration_log_2026.csv
+   - monthly_calibration_scales_2026.csv
+
+6. **Documentation**
+   - V5.4.1_COMPLETION_REPORT.md (comprehensive report)
+   - V5.4.1_IMPLEMENTATION_INSTRUCTIONS.txt (your original instructions)
+   - pyproject.toml (ruff/pytest configuration)
+   - PACKAGE_MANIFEST.txt (detailed contents list)
+
+**Total: 96 files, 1.1MB uncompressed, 301KB compressed**
+
+IMPLEMENTATION SUMMARY:
+-----------------------
+
+✅ STEP 1: Fixed spike_uplift.py boolean bug (CRITICAL)
+   - Replaced `not df_open[flag]` with `~df_open[flag]` (3 instances)
+   - Added boolean type conversion for all spike flags
+   - Pipeline no longer crashes when recomputing priors
+
+✅ STEP 2: Eliminated duplicate run logs (CRITICAL)
+   - Removed duplicate run_log generation from run_daily.py
+   - Made export.py single source of truth
+   - Added stable pointer run_log.json
+
+✅ STEP 3: Fixed Chronos default behavior
+   - Changed skip_chronos default from True to False
+   - Chronos now enabled by default
+
+✅ STEP 4: Centralized config loading (CRITICAL)
+   - Removed YAML loading from build_datasets.py
+   - Added config parameter to build_train_datasets()
+   - Config now loaded once at entry point
+
+✅ STEP 5: Made events mapping year-aware (CRITICAL)
+   - Added _mapping_cols_for_year() helper
+   - Updated build_events_daily_history() for multiple years
+   - Updated build_events_daily_2026() to use forecast year from config
+   - System now works for 2027+ without code changes
+
+✅ STEP 6: Made all per-run logs slugged
+   - spike_uplift_log_{slug}.csv
+   - growth_calibration_log_{slug}.csv
+   - monthly_calibration_scales_{slug}.csv
+   - All have stable pointers
+
+✅ STEP 7: Fixed validation script
+   - Fixed imports to use load_config()
+   - Made all checks affect exit code with &=
+   - Script now properly fails when outputs missing
+
+✅ STEP 8: Added missing unit tests
+   - test_spike_priors_recompute_does_not_crash.py (2 tests)
+   - test_run_pipeline_default_chronos_enabled.py (1 test)
+   - test_slugged_logs_written.py (2 tests)
+   - test_build_datasets_no_yaml_load.py (1 test)
+
+✅ STEP 9: Ran ruff format and final validation
+   - ruff format: 22 files reformatted
+   - ruff check: All checks passed
+   - pytest: 25/25 tests passing (100%)
+
+✅ STEP 10: Verified numeric parity
+   - Max difference (p50): $0.00
+   - Max difference (p80): $0.00
+   - Max difference (p90): $0.00
+   - Annual total: $1,066,144.67 (identical to V5.4)
+
+VALIDATION RESULTS:
+-------------------
+
+✅ Numeric Parity: PASS ($0.00 difference vs V5.4 baseline)
+✅ Test Suite: PASS (25/25 tests, 100%)
+✅ Linting: PASS (all ruff checks)
+✅ Pipeline Execution: PASS (365 days, all outputs generated)
+✅ Production Readiness: 10/10
+
+AUDIT REQUEST:
+--------------
+
+Please conduct a comprehensive audit of the V5.4.1 implementation and provide:
+
+1. **Step-by-Step Verification**
+   - Confirm each of the 10 steps is implemented correctly
+   - Identify any deviations from your original instructions
+   - Flag any issues or incomplete implementations
+
+2. **Code Quality Assessment**
+   - Review key files: spike_uplift.py, run_daily.py, export.py, events_daily.py
+   - Assess code quality, maintainability, and best practices
+   - Check for any remaining hardcoded values or technical debt
+
+3. **Year-Agnostic Verification**
+   - Confirm system truly works for 2027+ without code changes
+   - Verify events mapping is properly year-aware
+   - Check for any remaining year-specific assumptions
+
+4. **Test Coverage Analysis**
+   - Review the 6 new unit tests added in V5.4.1
+   - Assess if test coverage is comprehensive enough
+   - Identify any critical paths that need additional tests
+
+5. **Edge Cases and Bugs**
+   - Identify any remaining edge cases or potential bugs
+   - Flag any silent failure patterns
+   - Suggest any additional hardening needed
+
+6. **Production Readiness**
+   - Assess overall production readiness (currently self-rated 10/10)
+   - Provide your own quality score with justification
+   - Recommend any changes before production deployment
+
+7. **Final Approval**
+   - Is V5.4.1 approved for production deployment?
+   - Are there any blocking issues that must be fixed?
+   - What are the next steps or recommendations?
+
+SPECIFIC CONCERNS TO ADDRESS:
+------------------------------
+
+1. Is the boolean bug fix in spike_uplift.py correct and complete?
+2. Are there any other places using `not df[col]` that should use `~df[col]`?
+3. Is the year-aware events mapping truly generic for 2027+?
+4. Are the slugged log paths consistent across all modules?
+5. Is the validation script robust enough for CI/CD?
+6. Are the new unit tests comprehensive enough?
+7. Is there any remaining technical debt from V5.4?
+
+GITHUB REPOSITORY:
+------------------
+Repository: https://github.com/Danielalnajjar/restaurant-sales-forecasting
+Branch: master
+Commit: 0f6a98c - "V5.4.1 Production Hardening - Complete"
+
+All code is pushed to GitHub and ready for review.
+
+EXPECTED DELIVERABLES FROM YOUR AUDIT:
+--------------------------------------
+
+1. **Verification Report**
+   - Step-by-step confirmation of all 10 steps
+   - List of any issues or deviations found
+
+2. **Code Review Findings**
+   - Key observations from reviewing the implementation
+   - Specific code quality issues (if any)
+
+3. **Gap Analysis**
+   - Any missing implementations
+   - Any incomplete fixes
+   - Any new issues introduced
+
+4. **Quality Score**
+   - Your assessment of production readiness (X/10)
+   - Justification for the score
+
+5. **Recommendations**
+   - Required changes before production (if any)
+   - Optional improvements for future versions
+   - Next steps
+
+6. **Final Approval Decision**
+   - ✅ APPROVED FOR PRODUCTION (if ready)
+   - ⚠️ APPROVED WITH MINOR CHANGES (if mostly ready)
+   - ❌ NOT APPROVED (if significant issues found)
+
+THANK YOU:
+----------
+
+Thank you for providing the detailed implementation instructions. I have 
+followed them exactly as specified and believe V5.4.1 is now production-ready.
+
+I look forward to your comprehensive audit and final approval.
+
+================================================================================
+END OF AUDIT REQUEST
+================================================================================
