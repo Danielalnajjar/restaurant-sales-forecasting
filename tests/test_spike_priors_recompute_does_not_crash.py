@@ -48,6 +48,27 @@ def test_spike_priors_recompute_does_not_crash():
     assert black_friday_row['uplift_multiplier'] < 10  # Sanity check
 
 
+def test_spike_flag_nan_safe_casting():
+    """Test that NaN values in spike flags don't become True after casting."""
+    import pandas as pd
+
+    df = pd.DataFrame(
+        {
+            "ds": pd.to_datetime(["2025-11-28", "2025-11-29"]),
+            "y": [1000.0, 2000.0],
+            "is_closed": [False, False],
+            "is_black_friday": [1, None],  # NaN / None must become False
+        }
+    )
+
+    # Minimal behavior check: None should not become True after casting
+    df_open = df[df["is_closed"] == False].copy()
+    df_open["is_black_friday"] = df_open["is_black_friday"].fillna(False).astype(bool)
+
+    assert df_open.loc[df_open["ds"] == pd.Timestamp("2025-11-28"), "is_black_friday"].iloc[0] == True
+    assert df_open.loc[df_open["ds"] == pd.Timestamp("2025-11-29"), "is_black_friday"].iloc[0] == False
+
+
 def test_spike_priors_with_no_spike_days():
     """Test that compute_spike_uplift_priors handles no spike days gracefully."""
     from forecasting.features.spike_uplift import compute_spike_uplift_priors

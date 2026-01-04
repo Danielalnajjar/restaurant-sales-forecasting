@@ -53,6 +53,7 @@ def compute_spike_uplift_priors(
 
     # Filter to open days only
     df_open = df_sales[~df_sales["is_closed"]].copy()
+    df_open = df_open.copy()  # Prevent SettingWithCopy warnings
 
     if len(df_open) == 0:
         logger.warning("No open days in sales history")
@@ -84,10 +85,10 @@ def compute_spike_uplift_priors(
     # Filter to flags that exist in data
     spike_flags = [f for f in spike_flags if f in df_open.columns]
 
-    # Ensure spike flags are boolean for safe masking
+    # Ensure spike flags are boolean for safe masking (NaN-safe)
     for flag in spike_flags:
         if flag in df_open.columns:
-            df_open[flag] = df_open[flag].astype(bool)
+            df_open[flag] = df_open[flag].fillna(False).astype(bool)
 
     results = []
 
