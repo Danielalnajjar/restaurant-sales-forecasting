@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 *.so
 .Python
 env/
@@ -22,6 +23,13 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Testing and linting
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
 # Jupyter Notebook
 .ipynb_checkpoints
