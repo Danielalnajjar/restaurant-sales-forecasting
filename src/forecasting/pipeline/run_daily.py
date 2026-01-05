@@ -64,7 +64,7 @@ def run_pipeline(
     from forecasting.utils.runtime import (
         forecast_slug,
         forecast_year_from_config,
-        format_year_path,
+        resolve_year_path,
         get_forecast_window,
     )
 
@@ -75,17 +75,35 @@ def run_pipeline(
         f"Forecast period: {forecast_start} to {forecast_end} (year: {forecast_year}, slug: {slug})"
     )
 
-    # Resolve year-based raw input paths from templates
-    events_exact_path = format_year_path(
-        config["paths"]["raw_events_exact_template"], forecast_year
+    # Resolve year-based raw input paths from templates (with fallback)
+    events_exact_path = resolve_year_path(
+        config,
+        template_key="raw_events_exact_template",
+        fallback_key="raw_events_2026_exact",
+        year=forecast_year,
+        required=True,
     )
-    hours_calendar_path = format_year_path(
-        config["paths"]["raw_hours_calendar_template"], forecast_year
+    hours_calendar_path = resolve_year_path(
+        config,
+        template_key="raw_hours_calendar_template",
+        fallback_key="raw_hours_calendar_2026",
+        year=forecast_year,
+        required=True,
     )
-    hours_overrides_path = format_year_path(
-        config["paths"]["raw_hours_overrides_template"], forecast_year
+    hours_overrides_path = resolve_year_path(
+        config,
+        template_key="raw_hours_overrides_template",
+        fallback_key="raw_hours_overrides_2026",
+        year=forecast_year,
+        required=True,
     )
-    recurring_mapping_path = Path(config["paths"]["raw_recurring_mapping_template"])
+    recurring_mapping_path = resolve_year_path(
+        config,
+        template_key="raw_recurring_mapping_template",
+        fallback_key="raw_recurring_events",
+        year=forecast_year,
+        required=True,
+    )
 
     logger.info(f"Raw events path: {events_exact_path}")
     logger.info(f"Raw hours calendar path: {hours_calendar_path}")

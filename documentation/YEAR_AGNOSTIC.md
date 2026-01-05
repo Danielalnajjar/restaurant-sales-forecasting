@@ -1,6 +1,6 @@
 # Year-Agnostic Forecasting Guide
 
-**Version:** 5.4.2  
+**Version:** 5.4.3  
 **Date:** January 4, 2026  
 **Status:** Production-ready
 
@@ -51,11 +51,22 @@ python -m forecasting.pipeline.run_daily --config configs/config.yaml
 
 The pipeline will generate:
 
+**Year-specific outputs:**
 ```
 outputs/forecasts/forecast_daily_2027.csv
 outputs/reports/run_log_2027.json
 outputs/reports/spike_uplift_log_2027.csv
 outputs/reports/growth_calibration_log_2027.csv
+outputs/reports/monthly_calibration_scales_2027.csv
+```
+
+**Stable pointers (always point to latest run):**
+```
+outputs/forecasts/forecast_daily.csv
+outputs/reports/run_log.json
+outputs/reports/spike_uplift_log.csv
+outputs/reports/growth_calibration_log.csv
+outputs/reports/monthly_calibration_scales.csv
 ```
 
 ---
@@ -64,20 +75,58 @@ outputs/reports/growth_calibration_log_2027.csv
 
 ### Config-Driven Year Templates
 
-The system uses **year templates** in config.yaml:
+The system uses **year templates** in `configs/config.yaml`:
+
+#### Input Templates
 
 ```yaml
 paths:
+  # Raw input templates (with {year} placeholder)
   raw_events_exact_template: "data/events/events_{year}_exact_dates_clean_v2.csv"
   raw_hours_calendar_template: "data/raw/hours_calendar_{year}_v2.csv"
   raw_hours_overrides_template: "data/raw/hours_overrides_{year}_v2.csv"
+  raw_recurring_mapping_template: "data/events/recurring_event_mapping_2025_2026_clean.csv"
+  
+  # Legacy 2026-specific paths (fallback for backward compatibility)
+  raw_events_2026_exact: data/events/events_2026_exact_dates_clean_v2.csv
+  raw_hours_calendar_2026: data/raw/hours_calendar_2026_v2.csv
+  raw_hours_overrides_2026: data/raw/hours_overrides_2026_v2.csv
+  raw_recurring_events: data/events/recurring_event_mapping_2025_2026_clean.csv
 ```
 
-At runtime, the pipeline:
+#### Output Templates
+
+```yaml
+paths:
+  # Output templates (with {year} placeholder)
+  output_forecast_daily_template: "outputs/forecasts/forecast_daily_{year}.csv"
+  output_run_log_template: "outputs/reports/run_log_{year}.json"
+  output_spike_uplift_log_template: "outputs/reports/spike_uplift_log_{year}.csv"
+  output_growth_calibration_log_template: "outputs/reports/growth_calibration_log_{year}.csv"
+  output_monthly_calibration_scales_template: "outputs/reports/monthly_calibration_scales_{year}.csv"
+  
+  # Stable pointers (always point to latest run)
+  output_forecast_daily_pointer: "outputs/forecasts/forecast_daily.csv"
+  output_run_log_pointer: "outputs/reports/run_log.json"
+  output_spike_uplift_log_pointer: "outputs/reports/spike_uplift_log.csv"
+  output_growth_calibration_log_pointer: "outputs/reports/growth_calibration_log.csv"
+  output_monthly_calibration_scales_pointer: "outputs/reports/monthly_calibration_scales.csv"
+```
+
+### Path Resolution Logic
+
+At runtime, the pipeline uses `resolve_year_path()` which:
+
 1. Extracts the forecast year from `forecast_start` (e.g., 2027)
-2. Substitutes `{year}` in templates to get actual paths
-3. Loads data from those paths
-4. Generates forecasts with year-specific slugs
+2. Looks for template key (e.g., `raw_hours_calendar_template`)
+3. If found, substitutes `{year}` → actual year (e.g., `data/raw/hours_calendar_2027_v2.csv`)
+4. If not found, falls back to legacy key (e.g., `raw_hours_calendar_2026`)
+5. If neither found, raises clear error
+
+This ensures:
+- ✅ **New configs** use templates (year-agnostic)
+- ✅ **Old configs** still work (fallback to 2026 paths)
+- ✅ **Clear errors** if files missing
 
 ### Year-Generic Event Mapping
 
@@ -94,6 +143,7 @@ Core functions have been renamed to be year-agnostic:
 - `generate_forecast()` (was `generate_2026_forecast()`)
 - `build_events_daily_forecast()` (was `build_events_daily_2026()`)
 - `build_hours_calendar_forecast()` (was `build_hours_calendar_2026()`)
+- `build_inference_features_forecast()` (was `build_inference_features_2026()`)
 
 **Backward compatibility:** Old function names still work as aliases.
 
@@ -101,243 +151,143 @@ Core functions have been renamed to be year-agnostic:
 
 ## Data File Requirements
 
-### 1. Exact Events File
+### For 2027 Forecasting
 
-**Path:** `data/events/events_{year}_exact_dates_clean_v2.csv`
+**Required files:**
+1. `data/events/events_2027_exact_dates_clean_v2.csv`
+   - Columns: `event_name`, `start_date`, `end_date`, `is_multiday`
+   - Format: Same as 2026 file
 
-**Required columns:**
-- `event_name` - Name of the event
-- `event_family` - Event category/family
-- `start_date` - Start date (YYYY-MM-DD)
-- `end_date` - End date (YYYY-MM-DD)
-- `is_major` - Boolean flag for major events
+2. `data/raw/hours_calendar_2027_v2.csv`
+   - Columns: `date`, `day_of_week`, `open_time`, `close_time`, `is_closed`
+   - Format: Same as 2026 file
 
-**Example:**
+3. `data/raw/hours_overrides_2027_v2.csv`
+   - Columns: `date`, `open_time`, `close_time`, `is_closed`, `reason`
+   - Format: Same as 2026 file
+
+4. `data/events/recurring_event_mapping_2025_2026_clean.csv` (updated)
+   - Add columns: `start_2027`, `end_2027`
+   - Existing columns: `event_family`, `start_2025`, `end_2025`, `start_2026`, `end_2026`
+
+### File Format Examples
+
+**events_2027_exact_dates_clean_v2.csv:**
 ```csv
-event_name,event_family,start_date,end_date,is_major
-New Year's Day,Holiday,2027-01-01,2027-01-01,TRUE
-Super Bowl Sunday,Sports,2027-02-07,2027-02-07,TRUE
+event_name,start_date,end_date,is_multiday
+New Year's Day,2027-01-01,2027-01-01,False
+Memorial Day,2027-05-31,2027-05-31,False
+Independence Day,2027-07-04,2027-07-04,False
+Thanksgiving,2027-11-25,2027-11-25,False
+Black Friday,2027-11-26,2027-11-26,False
+Christmas,2027-12-25,2027-12-25,False
 ```
 
-### 2. Hours Calendar File
-
-**Path:** `data/raw/hours_calendar_{year}_v2.csv`
-
-**Required columns:**
-- `ds` - Date (YYYY-MM-DD)
-- `open_time` - Opening time (HH:MM)
-- `close_time` - Closing time (HH:MM)
-- `is_closed` - Boolean flag for closed days
-
-**Example:**
-```csv
-ds,open_time,close_time,is_closed
-2027-01-01,00:00,00:00,TRUE
-2027-01-02,11:00,21:00,FALSE
-```
-
-### 3. Hours Overrides File
-
-**Path:** `data/raw/hours_overrides_{year}_v2.csv`
-
-**Same format as hours calendar.** Used to override specific dates (holidays, special events).
-
-### 4. Recurring Event Mapping
-
-**Path:** `data/events/recurring_event_mapping_2025_2026_clean.csv`
-
-**Required columns:**
-- `event_family` - Event category
-- `start_2025`, `end_2025` - 2025 date range
-- `start_2026`, `end_2026` - 2026 date range
-- `start_2027`, `end_2027` - 2027 date range (add as needed)
-- `start_2028`, `end_2028` - 2028 date range (add as needed)
-
-**Example:**
+**recurring_event_mapping (with 2027):**
 ```csv
 event_family,start_2025,end_2025,start_2026,end_2026,start_2027,end_2027
-Black Friday,2025-11-28,2025-11-29,2026-11-27,2026-11-28,2027-11-26,2027-11-27
-Christmas,2025-12-24,2025-12-26,2026-12-24,2026-12-26,2027-12-24,2027-12-26
+memorial_day_weekend,2025-05-24,2025-05-26,2026-05-23,2026-05-25,2027-05-29,2027-05-31
+labor_day_weekend,2025-08-30,2025-09-01,2026-09-05,2026-09-07,2027-09-04,2027-09-06
+year_end_week,2025-12-26,2026-01-01,2026-12-26,2027-01-01,2027-12-26,2028-01-01
 ```
 
 ---
 
-## Output Naming
+## Testing Year-Agnostic Behavior
 
-Outputs are named using a **slug** derived from the forecast period:
+### Smoke Test for 2027
 
-### Full-Year Forecasts
-- **Slug:** `YYYY` (e.g., `2027`)
-- **Example:** `forecast_daily_2027.csv`
+1. Create a test config override:
+   ```yaml
+   # test_config_2027.yaml
+   forecast_start: 2027-01-01
+   forecast_end: 2027-12-31
+   ```
 
-### Partial-Year Forecasts
-- **Slug:** `YYYYMMDD_YYYYMMDD` (e.g., `20270601_20271231`)
-- **Example:** `forecast_daily_20270601_20271231.csv`
+2. Run with override:
+   ```bash
+   python -m forecasting.pipeline.run_daily --config test_config_2027.yaml
+   ```
 
-### Stable Pointers
-
-For convenience, the system also creates **stable pointer files** without slugs:
-- `outputs/forecasts/forecast_daily.csv` → latest forecast
-- `outputs/reports/run_log.json` → latest run metadata
-- `outputs/reports/spike_uplift_log.csv` → latest spike log
-
-These are exact copies of the slugged versions, making it easy to find the latest outputs.
+3. Expected behavior:
+   - If 2027 files exist: Pipeline runs successfully
+   - If 2027 files missing: Clear error message:
+     ```
+     ValueError: Path not found in config: template_key='raw_hours_calendar_template', 
+     fallback_key='raw_hours_calendar_2026', year=2027
+     ```
 
 ---
 
-## Testing Year Changes
+## Backward Compatibility
 
-### Sanity Test: Forecast 2027 Q1
+### Old Configs Still Work
 
-To test the year-agnostic system without a full year:
-
+If your config.yaml only has legacy keys:
 ```yaml
-forecast_start: 2027-01-01
-forecast_end: 2027-03-31
+paths:
+  raw_hours_2026: data/raw/hours_calendar_2026_v2.csv
+  raw_events_2026_exact: data/events/events_2026_exact_dates_clean_v2.csv
 ```
 
-This will generate a 90-day forecast with slug `20270101_20270331`.
+The system will:
+1. Try template keys (not found)
+2. Fall back to legacy keys (found)
+3. Use 2026 files
 
-### Validation Checklist
+**Result:** Pipeline works exactly as before.
 
-After changing years, verify:
+### Migration Path
 
-1. ✅ **Config loads successfully** - No errors about missing fields
-2. ✅ **Year extracted correctly** - Check logs for "Forecast period: 2027-01-01 to 2027-12-31 (year: 2027)"
-3. ✅ **Paths resolved correctly** - Check logs for "Raw events path: data/events/events_2027_exact_dates_clean_v2.csv"
-4. ✅ **Data files loaded** - No "file not found" errors
-5. ✅ **Outputs generated** - Check for `forecast_daily_2027.csv`, `run_log_2027.json`
-6. ✅ **Slug in filenames** - All outputs use correct year slug
+To migrate from legacy to year-agnostic config:
+
+1. Add template keys to config.yaml (keep legacy keys for now)
+2. Test with 2026 (should work with both template and fallback)
+3. Add 2027 files
+4. Test with 2027 (should use templates)
+5. Remove legacy keys once confident
 
 ---
 
 ## Troubleshooting
 
-### Error: "File not found: data/events/events_2027_exact_dates_clean_v2.csv"
+### Error: "Path not found in config"
 
-**Solution:** Create the 2027 exact events file. Copy the 2026 file and update dates:
+**Cause:** Missing both template and fallback keys
 
-```bash
-cp data/events/events_2026_exact_dates_clean_v2.csv \
-   data/events/events_2027_exact_dates_clean_v2.csv
-# Edit the file to update dates to 2027
-```
-
-### Error: "Missing year columns for 2027 in recurring mapping"
-
-**Solution:** Add `start_2027` and `end_2027` columns to `recurring_event_mapping_clean.csv`:
-
-```python
-import pandas as pd
-
-df = pd.read_csv("data/events/recurring_event_mapping_2025_2026_clean.csv")
-
-# Add 2027 columns by shifting 2026 dates forward 1 year
-df["start_2027"] = pd.to_datetime(df["start_2026"]) + pd.DateOffset(years=1)
-df["end_2027"] = pd.to_datetime(df["end_2026"]) + pd.DateOffset(years=1)
-
-df.to_csv("data/events/recurring_event_mapping_2025_2026_clean.csv", index=False)
-```
-
-### Warning: "Skipping 2024 dates for Christmas (likely leap year issue)"
-
-**Expected behavior.** The system tries to use 2024 data as a fallback if 2025 data is missing. Leap year edge cases (Feb 29) are handled gracefully.
-
-### Error: "forecast_end (2027-01-01) must be >= forecast_start (2027-12-31)"
-
-**Solution:** You have `forecast_start` and `forecast_end` swapped in config.yaml. Fix the order.
-
----
-
-## Advanced Usage
-
-### Forecasting Multiple Years
-
-To generate forecasts for 2027, 2028, and 2029:
-
-```bash
-# 2027
-python -m forecasting.pipeline.run_daily --config configs/config_2027.yaml
-
-# 2028
-python -m forecasting.pipeline.run_daily --config configs/config_2028.yaml
-
-# 2029
-python -m forecasting.pipeline.run_daily --config configs/config_2029.yaml
-```
-
-Create separate config files for each year, or use a script to update the single config.yaml between runs.
-
-### Custom Output Directories
-
-Override output paths in config.yaml:
-
+**Solution:** Add template key to config.yaml:
 ```yaml
 paths:
-  forecasts_daily: "outputs/forecasts/forecast_daily_{slug}.csv"
-  reports_run_log: "outputs/reports/run_log_{slug}.json"
+  raw_hours_calendar_template: "data/raw/hours_calendar_{year}_v2.csv"
 ```
 
-The `{slug}` placeholder will be replaced with the year slug.
+### Error: "File not found: data/raw/hours_calendar_2027_v2.csv"
+
+**Cause:** Config resolved path correctly, but file doesn't exist
+
+**Solution:** Create the 2027 file or use 2026 data as a placeholder for testing
+
+### Outputs Still Named "2026"
+
+**Cause:** Using old config keys without templates
+
+**Solution:** Update config.yaml to use `output_*_template` keys (see above)
 
 ---
 
-## Implementation Details
+## Summary
 
-### V5.4.2 Changes
+**V5.4.3 makes forecasting truly year-agnostic:**
 
-The year-agnostic system was implemented in V5.4.2 with these key changes:
+✅ **Config-only year changes** (2 lines)  
+✅ **Template-based path resolution** (with fallback)  
+✅ **Year-specific + pointer outputs** (both slugged and stable)  
+✅ **Backward compatible** (old configs still work)  
+✅ **Clear error messages** (if files missing)
 
-1. **PHASE 1:** Year-generic recurring mapping ingest (preserves all year columns)
-2. **PHASE 2:** NaN-safe spike flag casting (prevents edge case bugs)
-3. **PHASE 3:** Repo hygiene (enhanced .gitignore)
-4. **PHASE 4:** Config-driven year templates (enables config-only year changes)
-5. **PHASE 5:** Generic naming + backward-compatible aliases
-6. **PHASE 6:** Tightened exception handling (removed bare `except:`)
-7. **PHASE 7:** Validation + documentation
-
-### Numeric Parity
-
-All V5.4.2 changes maintain **strict numeric parity** with V5.4.1:
-- **Max difference (p50):** $0.00
-- **Max difference (p80):** $0.00
-- **Max difference (p90):** $0.00
-- **Annual total:** $1,066,144.67 (identical)
-
-This means the year-agnostic refactoring had **zero impact** on forecast values for 2026.
-
----
-
-## FAQ
-
-**Q: Do I need to change any code to forecast 2027?**  
-A: No. Just update config.yaml and provide 2027 data files.
-
-**Q: Can I forecast partial years (e.g., Q1 2027)?**  
-A: Yes. Set `forecast_start: 2027-01-01` and `forecast_end: 2027-03-31`.
-
-**Q: What if I don't have 2027 recurring event dates yet?**  
-A: The system will fall back to 2026 dates shifted by 1 year. You can add `start_2027`/`end_2027` columns later.
-
-**Q: Can I use the old function names (generate_2026_forecast)?**  
-A: Yes. They're backward-compatible aliases that call the new generic functions.
-
-**Q: Will this work for 2030 and beyond?**  
-A: Yes. Just add `start_2030`/`end_2030` columns to recurring mapping and create 2030 data files.
-
-**Q: How do I know which year the forecast is for?**  
-A: Check the `run_log.json` file - it includes `forecast_start`, `forecast_end`, and `forecast_year`.
-
----
-
-## Support
-
-For issues or questions about year-agnostic forecasting:
-1. Check this guide's Troubleshooting section
-2. Review the V5.4.2 implementation logs in `documentation/V5.4.2_WORKLOG.md`
-3. Contact the forecasting team
+**No code changes required to forecast 2027, 2028, 2029+**
 
 ---
 
 **Last Updated:** January 4, 2026  
-**Version:** 5.4.2 10++
+**Version:** 5.4.3

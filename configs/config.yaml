@@ -88,12 +88,26 @@ paths:
   backtests_gbm_long: outputs/backtests/preds_gbm_long.parquet
   backtests_chronos2: outputs/backtests/preds_chronos2.parquet
   
-  # Forecast outputs
+  # Forecast outputs (year-template + pointers)
+  output_forecast_daily_template: "outputs/forecasts/forecast_daily_{year}.csv"
+  output_forecast_daily_pointer: "outputs/forecasts/forecast_daily.csv"
+  output_rollups_ordering_template: "outputs/forecasts/rollups_ordering_{year}.csv"
+  output_rollups_scheduling_template: "outputs/forecasts/rollups_scheduling_{year}.csv"
+  
+  # Reports (year-template + pointers)
+  output_run_log_template: "outputs/reports/run_log_{year}.json"
+  output_run_log_pointer: "outputs/reports/run_log.json"
+  output_spike_uplift_log_template: "outputs/reports/spike_uplift_log_{year}.csv"
+  output_spike_uplift_log_pointer: "outputs/reports/spike_uplift_log.csv"
+  output_growth_calibration_log_template: "outputs/reports/growth_calibration_log_{year}.csv"
+  output_growth_calibration_log_pointer: "outputs/reports/growth_calibration_log.csv"
+  output_monthly_calibration_scales_template: "outputs/reports/monthly_calibration_scales_{year}.csv"
+  output_monthly_calibration_scales_pointer: "outputs/reports/monthly_calibration_scales.csv"
+  
+  # Legacy 2026-specific output paths (kept for backward compatibility)
   forecasts_daily: outputs/forecasts/forecast_daily_2026.csv
   forecasts_rollups_ordering: outputs/forecasts/rollups_ordering.csv
   forecasts_rollups_scheduling: outputs/forecasts/rollups_scheduling.csv
-  
-  # Reports
   reports_run_log: outputs/reports/run_log.json
   reports_spike_uplift_log: outputs/reports/spike_uplift_log.csv
   reports_growth_calibration_log: outputs/reports/growth_calibration_log.csv

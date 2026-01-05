@@ -229,3 +229,87 @@ def forecast_year_from_config(config: Dict[str, Any]) -> int:
     start, _ = get_forecast_window(config)
     # Parse as timestamp to handle both string and date objects
     return int(pd.Timestamp(start).year)
+
+
+
+def resolve_year_path(
+    config: dict,
+    template_key: str,
+    fallback_key: str | None = None,
+    year: int | None = None,
+    required: bool = True,
+) -> str:
+    """
+    Resolve a year-template path from config.
+
+    Per V5.4.3 PHASE 2: Enables config-only year changes (2027+).
+
+    Resolution order:
+    1. If template_key exists in config["paths"], format with {year}
+    2. Else if fallback_key exists, use that path
+    3. Else if required=True, raise ValueError
+    4. Else return None
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary with paths section
+    template_key : str
+        Key for year-template path (e.g., "raw_hours_calendar_template")
+    fallback_key : str, optional
+        Fallback key for legacy path (e.g., "raw_hours_2026")
+    year : int, optional
+        Year to substitute into template. If None, uses forecast_year_from_config()
+    required : bool, default True
+        If True, raise ValueError if path not found
+
+    Returns
+    -------
+    str
+        Resolved path (relative to repo root)
+
+    Raises
+    ------
+    ValueError
+        If required=True and path not found in config
+
+    Examples
+    --------
+    >>> config = {
+    ...     "forecast_start": "2027-01-01",
+    ...     "paths": {
+    ...         "raw_hours_calendar_template": "data/raw/hours_calendar_{year}_v2.csv",
+    ...         "raw_hours_2026": "data/raw/hours_calendar_2026_v2.csv"
+    ...     }
+    ... }
+    >>> resolve_year_path(config, "raw_hours_calendar_template")
+    'data/raw/hours_calendar_2027_v2.csv'
+    >>> resolve_year_path(config, "raw_hours_calendar_template", year=2028)
+    'data/raw/hours_calendar_2028_v2.csv'
+    >>> resolve_year_path(config, "nonexistent", fallback_key="raw_hours_2026")
+    'data/raw/hours_calendar_2026_v2.csv'
+    """
+    paths = config.get("paths", {})
+
+    # Determine year
+    if year is None:
+        year = forecast_year_from_config(config)
+
+    # Try template first
+    if template_key in paths:
+        template = paths[template_key]
+        return template.format(year=year)
+
+    # Try fallback
+    if fallback_key and fallback_key in paths:
+        return paths[fallback_key]
+
+    # Not found
+    if required:
+        raise ValueError(
+            f"Path not found in config: template_key='{template_key}', "
+            f"fallback_key='{fallback_key}', year={year}. "
+            f"Available keys: {list(paths.keys())}"
+        )
+
+    return None
