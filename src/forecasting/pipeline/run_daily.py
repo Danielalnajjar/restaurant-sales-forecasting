@@ -6,11 +6,12 @@ import sys
 from pathlib import Path
 
 from forecasting.backtest.rolling_origin import run_baseline_backtest
+# Per V5.4.3 PHASE 5: Use generic names internally
 from forecasting.features.build_datasets import build_inference_features_2026, build_train_datasets
 from forecasting.features.event_uplift import compute_event_uplift_priors, generate_uplift_report
-from forecasting.features.events_daily import build_events_daily_2026, build_events_daily_history
+from forecasting.features.events_daily import build_events_daily_forecast, build_events_daily_history
 from forecasting.io.events_ingest import ingest_events_2026_exact, ingest_recurring_event_mapping
-from forecasting.io.hours_calendar import build_hours_calendar_2026, build_hours_calendar_history
+from forecasting.io.hours_calendar import build_hours_calendar_forecast, build_hours_calendar_history
 
 # Import all pipeline components
 from forecasting.io.sales_ingest import ingest_sales
@@ -18,7 +19,7 @@ from forecasting.models.chronos2 import run_chronos2_backtest
 from forecasting.models.ensemble import EnsembleModel
 from forecasting.models.gbm_long import run_gbm_long_backtest
 from forecasting.models.gbm_short import run_gbm_short_backtest
-from forecasting.pipeline.export import generate_2026_forecast
+from forecasting.pipeline.export import generate_forecast
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,8 @@ def run_pipeline(
 
         # Step 2: Build hours calendars
         logger.info("\n[2/9] Building hours calendars...")
-        build_hours_calendar_2026(
+        build_hours_calendar_forecast(
+            config=config,
             calendar_path=str(hours_calendar_path),
             overrides_path=str(hours_overrides_path),
         )
@@ -131,7 +133,7 @@ def run_pipeline(
         # Step 4: Build event features
         logger.info("\n[4/9] Building event daily features...")
         build_events_daily_history()
-        build_events_daily_2026(config)
+        build_events_daily_forecast(config)
 
         # Step 5: Compute uplift priors
         logger.info("\n[5/9] Computing event uplift priors...")
@@ -209,7 +211,7 @@ def run_pipeline(
 
         # Step 9: Generate forecast
         logger.info(f"\n[9/9] Generating forecast for {forecast_start} to {forecast_end}...")
-        df_forecast = generate_2026_forecast(
+        df_forecast = generate_forecast(
             config=config, config_path=str(resolved_config_path), config_hash=config_hash
         )
 
