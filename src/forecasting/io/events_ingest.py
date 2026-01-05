@@ -249,18 +249,3 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     logger.info(f"Saved events audit report to {output_path}")
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Ingest exact events
-    df_exact = ingest_events_2026_exact()
-
-    # Ingest recurring mapping
-    df_recurring = ingest_recurring_event_mapping()
-
-    # Generate audit
-    generate_events_audit(df_exact, df_recurring)
-
-    print("\nEvents ingestion complete!")
-    print(f"2026 exact events: {len(df_exact)}")
-    print(f"Recurring mappings: {len(df_recurring)}")

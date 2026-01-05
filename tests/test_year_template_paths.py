@@ -4,8 +4,6 @@ Test year template path resolution for config-driven 2027+ forecasting.
 
 from pathlib import Path
 
-import pytest
-
 
 def test_format_year_path():
     """Test that format_year_path correctly substitutes year placeholder."""

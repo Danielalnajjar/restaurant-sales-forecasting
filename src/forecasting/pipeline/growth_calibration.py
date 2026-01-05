@@ -273,39 +273,4 @@ def _apply_monthly_calibration(
     return df
 
 
-if __name__ == "__main__":
-    # Test growth calibration
-    import sys
 
-    sys.path.insert(0, "/home/ubuntu/forecasting/src")
-
-    # Load actuals
-    df_actuals = pd.read_parquet("/home/ubuntu/forecasting/data/processed/fact_sales_daily.parquet")
-
-    # Load forecast
-    df_forecast = pd.read_csv("/home/ubuntu/forecasting/outputs/forecasts/forecast_daily_2026.csv")
-    df_forecast["ds"] = pd.to_datetime(df_forecast["ds"])
-
-    # Test annual mode
-    print("=" * 80)
-    print("ANNUAL MODE TEST")
-    print("=" * 80)
-    df_annual, log_annual = apply_growth_calibration(
-        df_forecast=df_forecast, df_history=df_actuals, target_yoy_rate=0.10, mode="annual"
-    )
-    print(f"Original total: ${df_forecast['p50'].sum():,.0f}")
-    print(f"Annual calibrated total: ${df_annual['p50'].sum():,.0f}")
-    print()
-
-    # Test monthly mode
-    print("=" * 80)
-    print("MONTHLY MODE TEST")
-    print("=" * 80)
-    df_monthly, log_monthly = apply_growth_calibration(
-        df_forecast=df_forecast, df_history=df_actuals, target_yoy_rate=0.10, mode="monthly"
-    )
-    print(f"Original total: ${df_forecast['p50'].sum():,.0f}")
-    print(f"Monthly calibrated total: ${df_monthly['p50'].sum():,.0f}")
-    print()
-    print("Monthly scales:")
-    print(log_monthly.groupby("month")["calibration_scale"].first())

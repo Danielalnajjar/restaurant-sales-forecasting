@@ -304,18 +304,3 @@ def run_chronos2_backtest(
     return df_metrics, df_preds
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Run Chronos-2 backtest
-    df_metrics, df_preds = run_chronos2_backtest()
-
-    if df_metrics is None:
-        print("\n=== Chronos-2 Not Available ===")
-        print("This is expected and does not block the pipeline.")
-        print("The system will continue with GBM models only.")
-    else:
-        print("\n=== Chronos-2 Backtest Complete ===")
-        print(f"Predictions generated: {len(df_preds)}")
-        print("\nSample predictions:")
-        print(df_preds[["target_date", "p50", "p80", "p90"]].head(10).to_string(index=False))

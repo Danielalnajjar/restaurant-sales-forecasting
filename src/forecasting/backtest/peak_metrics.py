@@ -148,30 +148,3 @@ def compute_combined_score(metrics: dict, weights: dict = None) -> float:
     return score
 
 
-if __name__ == "__main__":
-    # Test with sample data
-    np.random.seed(42)
-
-    # Simulate predictions
-    n = 100
-    y_true = np.random.lognormal(7, 0.5, n)  # Skewed distribution (like sales)
-    y_pred = y_true * np.random.normal(1.0, 0.15, n)  # 15% error
-
-    df = pd.DataFrame(
-        {
-            "y": y_true,
-            "p50": y_pred,
-            "p80": y_pred * 1.1,
-            "p90": y_pred * 1.2,
-            "horizon": np.random.randint(1, 100, n),
-        }
-    )
-
-    # Compute metrics
-    metrics = compute_peak_metrics(df)
-
-    print("Peak metrics test:")
-    for k, v in metrics.items():
-        print(f"  {k}: {v}")
-
-    print(f"\nCombined score: {compute_combined_score(metrics):.4f}")

@@ -368,33 +368,3 @@ def build_events_daily_forecast(
     return df_features
 
 
-# Commented out __main__ block (PHASE 6: remove debug blocks with hardcoded paths)
-# if __name__ == "__main__":
-#     logging.basicConfig(level=logging.INFO)
-#     # Build historical event features
-#     df_history = build_events_daily_history()
-#     # Build 2026 event features
-#     from forecasting.utils.runtime import load_config
-#     config = load_config()
-#     df_2026 = build_events_daily_2026(config)
-#     print("\nEvent features complete!")
-#     print(f"History: {len(df_history)} days, {len(df_history.columns)} features")
-#     print(f"2026: {len(df_2026)} days, {len(df_2026.columns)} features")
-
-
-# Backward-compatible alias
-def build_events_daily_2026(
-    config: dict,
-    exact_events_path: str | None = None,
-    recurring_mapping_path: str = "data/processed/recurring_event_mapping.parquet",
-    output_path: str | None = None,
-    top_k_families: int = 40,
-) -> pd.DataFrame:
-    """Backward-compatible wrapper for build_events_daily_forecast()."""
-    return build_events_daily_forecast(
-        config=config,
-        exact_events_path=exact_events_path,
-        recurring_mapping_path=recurring_mapping_path,
-        output_path=output_path,
-        top_k_families=top_k_families,
-    )

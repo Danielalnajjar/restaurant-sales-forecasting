@@ -272,24 +272,3 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     logger.info(f"Saved uplift report to {output_path}")
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Compute priors using full history
-    df_sales = pd.read_parquet("data/processed/fact_sales_daily.parquet")
-    ds_max = df_sales["ds"].max().strftime("%Y-%m-%d")
-
-    df_uplift = compute_event_uplift_priors(ds_max=ds_max)
-
-    # Save priors
-    output_path = "data/processed/event_uplift_priors.parquet"
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    df_uplift.to_parquet(output_path, index=False)
-    logger.info(f"Saved uplift priors to {output_path}")
-
-    # Generate report
-    generate_uplift_report(df_uplift)
-
-    print("\nUplift priors complete!")
-    print(f"Mean uplift (shrunk): {df_uplift['uplift_mean_shrunk'].mean():.3f}")
-    print(f"Median uplift (shrunk): {df_uplift['uplift_mean_shrunk'].median():.3f}")

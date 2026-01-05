@@ -270,26 +270,3 @@ def run_gbm_long_backtest(
     return df_metrics, df_preds
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Run backtest
-    df_metrics, df_preds = run_gbm_long_backtest()
-
-    print("\n=== GBM Long-Horizon Backtest Results ===")
-    print("\nMetrics by horizon bucket:")
-    print(df_metrics.to_string(index=False))
-
-    # Compare with baseline
-    df_baseline = pd.read_csv("outputs/backtests/metrics_baselines.csv")
-    df_baseline_wm = df_baseline[df_baseline["model_name"] == "weekday_rolling_median"]
-
-    print("\n=== Comparison with Weekday Median ===")
-    for bucket in ["15-30", "31-90", "91-380"]:
-        if bucket in df_metrics["horizon_bucket"].values:
-            gbm_wmape = df_metrics[df_metrics["horizon_bucket"] == bucket]["wmape"].values[0]
-            wm_wmape = df_baseline_wm[df_baseline_wm["horizon_bucket"] == bucket]["wmape"].values[0]
-            improvement = (wm_wmape - gbm_wmape) / wm_wmape * 100
-            print(
-                f"{bucket}: GBM {gbm_wmape:.3f} vs WM {wm_wmape:.3f} ({improvement:+.1f}% improvement)"
-            )

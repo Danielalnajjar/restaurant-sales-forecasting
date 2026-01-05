@@ -2,8 +2,9 @@
 Test that recurring mapping ingest preserves future year columns (2027+).
 """
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 
 def test_recurring_mapping_ingest_preserves_future_year_columns(tmp_path: Path):

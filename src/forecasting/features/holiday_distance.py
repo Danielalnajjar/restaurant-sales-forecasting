@@ -162,5 +162,3 @@ def test_holiday_distance_features():
     return df_test
 
 
-if __name__ == "__main__":
-    test_holiday_distance_features()

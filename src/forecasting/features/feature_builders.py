@@ -253,27 +253,3 @@ def build_features_long(
     return df
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Test feature builders
-    df_sales = pd.read_parquet("data/processed/fact_sales_daily.parquet")
-    df_hours = pd.read_parquet("data/processed/hours_calendar_history.parquet")
-    df_events = pd.read_parquet("data/processed/features/events_daily_history.parquet")
-
-    issue_date = pd.Timestamp("2025-12-01")
-    target_dates = pd.date_range(start="2025-12-02", end="2025-12-15", freq="D").tolist()
-
-    print("Testing short-horizon features...")
-    df_short = build_features_short(issue_date, target_dates, df_sales, df_hours, df_events)
-    print(f"Shape: {df_short.shape}")
-    print(f"Columns: {df_short.columns.tolist()[:10]}...")
-    print(
-        f"Sample:\n{df_short[['target_date', 'horizon', 'dow', 'y_lag_7', 'events_active_total']].head()}"
-    )
-
-    print("\nTesting long-horizon features...")
-    target_dates_long = pd.date_range(start="2025-12-16", end="2025-12-31", freq="D").tolist()
-    df_long = build_features_long(issue_date, target_dates_long, df_hours, df_events)
-    print(f"Shape: {df_long.shape}")
-    print(f"Has lag features: {'y_lag_7' in df_long.columns}")

@@ -2,7 +2,6 @@
 Test that backward-compatible wrappers still work after renaming to generic names.
 """
 
-import pytest
 
 
 def test_generate_2026_forecast_wrapper_exists():
@@ -47,8 +46,14 @@ def test_wrappers_have_same_signature():
     """Test that wrappers have same signature as original functions."""
     import inspect
 
-    from forecasting.features.events_daily import build_events_daily_2026, build_events_daily_forecast
-    from forecasting.io.hours_calendar import build_hours_calendar_2026, build_hours_calendar_forecast
+    from forecasting.features.events_daily import (
+        build_events_daily_2026,
+        build_events_daily_forecast,
+    )
+    from forecasting.io.hours_calendar import (
+        build_hours_calendar_2026,
+        build_hours_calendar_forecast,
+    )
     from forecasting.pipeline.export import generate_2026_forecast, generate_forecast
 
     # Check generate_forecast

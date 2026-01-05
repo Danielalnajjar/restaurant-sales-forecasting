@@ -231,18 +231,3 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     logger.info(f"Saved hours audit report to {output_path}")
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Build 2026 calendar
-    df_2026 = build_hours_calendar_2026()
-
-    # Build historical calendar
-    df_history = build_hours_calendar_history()
-
-    # Generate audit
-    generate_hours_audit(df_2026)
-
-    print("\nHours calendars complete!")
-    print(f"2026: {len(df_2026)} days, {df_2026['is_closed'].sum()} closed")
-    print(f"History: {len(df_history)} days, {df_history['is_closed'].sum()} closed")

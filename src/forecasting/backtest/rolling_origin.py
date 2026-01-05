@@ -190,15 +190,3 @@ def run_baseline_backtest(
     return df_metrics, df_preds
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Run baseline backtest
-    df_metrics, df_preds = run_baseline_backtest()
-
-    print("\n=== Baseline Backtest Results ===")
-    print("\nMetrics by model and horizon bucket:")
-    print(df_metrics.to_string(index=False))
-
-    print(f"\nTotal predictions: {len(df_preds)}")
-    print(f"Cutoffs: {df_preds['cutoff_date'].nunique()}")

@@ -185,16 +185,3 @@ def add_event_regime_features(df: pd.DataFrame, events_daily_df: pd.DataFrame) -
     return df
 
 
-if __name__ == "__main__":
-    # Quick test
-    dates = pd.date_range("2025-01-01", "2025-12-31", freq="D")
-    df = pd.DataFrame({"ds": dates})
-
-    df = add_spike_day_features(df)
-
-    # Show key dates
-    spike_cols = [c for c in df.columns if c.startswith("is_")]
-    spike_dates = df[df[spike_cols].any(axis=1)]
-
-    print("Spike days in 2025:")
-    print(spike_dates[["ds"] + spike_cols].to_string(index=False))

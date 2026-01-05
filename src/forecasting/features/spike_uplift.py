@@ -307,26 +307,4 @@ def save_spike_uplift_log(df_forecast: pd.DataFrame, output_path: str):
     )
 
 
-if __name__ == "__main__":
-    # Test spike uplift computation
-    import sys
 
-    sys.path.insert(0, "/home/ubuntu/forecasting/src")
-
-    from forecasting.features.spike_days import add_spike_day_features
-
-    # Load sales data
-    df_sales = pd.read_parquet("/home/ubuntu/forecasting/data/processed/fact_sales_daily.parquet")
-
-    # Add spike-day features
-    df_sales = add_spike_day_features(df_sales)
-
-    # Compute uplift priors
-    df_uplift = compute_spike_uplift_priors(df_sales, min_observations=1)
-
-    print("Spike-day uplift priors (V5.0):")
-    print(df_uplift.to_string(index=False))
-
-    # Save
-    df_uplift.to_csv("/home/ubuntu/forecasting/outputs/models/spike_uplift_priors.csv", index=False)
-    print("\nSaved to outputs/models/spike_uplift_priors.csv")

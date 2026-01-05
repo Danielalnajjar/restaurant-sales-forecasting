@@ -274,23 +274,3 @@ class EnsembleModel:
         logger.info(f"Saved ensemble weights to {path}")
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Fit ensemble
-    backtest_preds_paths = {
-        "seasonal_naive_weekly": "outputs/backtests/preds_baselines.parquet",
-        "weekday_rolling_median": "outputs/backtests/preds_baselines.parquet",
-        "gbm_short": "outputs/backtests/preds_gbm_short.parquet",
-        "gbm_long": "outputs/backtests/preds_gbm_long.parquet",
-    }
-
-    ensemble = EnsembleModel()
-    ensemble.fit(backtest_preds_paths)
-
-    # Save weights
-    ensemble.save("outputs/models/ensemble_weights.csv")
-
-    print("\n=== Ensemble Weights ===")
-    df_weights = pd.read_csv("outputs/models/ensemble_weights.csv")
-    print(df_weights.to_string(index=False))

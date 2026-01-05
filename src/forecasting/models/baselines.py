@@ -135,26 +135,3 @@ class WeekdayRollingMedian:
         return pd.DataFrame(predictions)
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Test baselines
-    df_sales = pd.read_parquet("data/processed/fact_sales_daily.parquet")
-
-    # Test seasonal naive
-    model_sn = SeasonalNaiveWeekly()
-    model_sn.fit(df_sales[df_sales["ds"] <= "2025-12-01"])
-
-    target_dates = pd.date_range(start="2025-12-02", end="2025-12-15", freq="D").tolist()
-    preds_sn = model_sn.predict(target_dates)
-
-    print("Seasonal Naive predictions:")
-    print(preds_sn.head())
-
-    # Test weekday median
-    model_wm = WeekdayRollingMedian()
-    model_wm.fit(df_sales[df_sales["ds"] <= "2025-12-01"])
-    preds_wm = model_wm.predict(target_dates)
-
-    print("\nWeekday Median predictions:")
-    print(preds_wm.head())

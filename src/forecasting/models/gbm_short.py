@@ -248,25 +248,3 @@ def run_gbm_short_backtest(
     return df_metrics, df_preds
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Run backtest
-    df_metrics, df_preds = run_gbm_short_backtest()
-
-    print("\n=== GBM Short-Horizon Backtest Results ===")
-    print("\nMetrics by horizon bucket:")
-    print(df_metrics.to_string(index=False))
-
-    # Compare with baseline
-    df_baseline = pd.read_csv("outputs/backtests/metrics_baselines.csv")
-    df_baseline_sn = df_baseline[df_baseline["model_name"] == "seasonal_naive_weekly"]
-
-    print("\n=== Comparison with Seasonal Naive ===")
-    for bucket in ["1-7", "8-14"]:
-        gbm_wmape = df_metrics[df_metrics["horizon_bucket"] == bucket]["wmape"].values[0]
-        sn_wmape = df_baseline_sn[df_baseline_sn["horizon_bucket"] == bucket]["wmape"].values[0]
-        improvement = (sn_wmape - gbm_wmape) / sn_wmape * 100
-        print(
-            f"{bucket}: GBM {gbm_wmape:.3f} vs SN {sn_wmape:.3f} ({improvement:+.1f}% improvement)"
-        )

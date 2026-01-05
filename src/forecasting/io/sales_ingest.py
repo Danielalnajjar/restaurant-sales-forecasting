@@ -171,16 +171,3 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     logger.info(f"Saved audit report to {output_path}")
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Run ingestion
-    df = ingest_sales()
-
-    # Generate audit report
-    generate_audit_report(df)
-
-    print("\nIngestion complete!")
-    print(f"Date range: {df['ds'].min()} to {df['ds'].max()}")
-    print(f"Total days: {len(df)}")
-    print(f"Closed days: {df['is_closed'].sum()}")

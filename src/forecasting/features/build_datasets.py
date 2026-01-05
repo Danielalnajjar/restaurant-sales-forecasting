@@ -294,27 +294,3 @@ def build_inference_features_2026(
     return df_inf_short, df_inf_long
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Build training datasets
-    df_train_short, df_train_long = build_train_datasets()
-
-    print("\nTraining datasets complete!")
-    print(
-        f"Short: {len(df_train_short)} rows, horizons {df_train_short['horizon'].min()}-{df_train_short['horizon'].max()}"
-    )
-    print(
-        f"Long: {len(df_train_long)} rows, horizons {df_train_long['horizon'].min()}-{df_train_long['horizon'].max()}"
-    )
-
-    # Verify no lag features in long
-    lag_cols_in_long = [col for col in df_train_long.columns if "y_lag" in col or "y_roll" in col]
-    print(f"Lag columns in long dataset: {lag_cols_in_long}")
-
-    # Build 2026 inference features
-    df_inf_short, df_inf_long = build_inference_features_2026()
-
-    print("\n2026 inference features complete!")
-    print(f"Short: {len(df_inf_short)} rows")
-    print(f"Long: {len(df_inf_long)} rows")
