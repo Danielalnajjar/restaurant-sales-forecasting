@@ -126,37 +126,3 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
 
     return df
 
-
-def test_holiday_distance_features():
-    """Test holiday distance features on key dates."""
-    # Test dates
-    test_dates = [
-        "2025-11-28",  # Black Friday 2025
-        "2025-11-27",  # Thanksgiving 2025
-        "2025-12-24",  # Christmas Eve 2025
-        "2025-12-25",  # Christmas 2025
-        "2025-12-31",  # New Year's Eve 2025
-        "2026-01-01",  # New Year 2026
-        "2026-11-26",  # Thanksgiving 2026
-        "2026-11-27",  # Black Friday 2026
-    ]
-
-    df_test = pd.DataFrame({"ds": pd.to_datetime(test_dates)})
-    df_test = add_holiday_distance_features(df_test)
-
-    print("Holiday Distance Features Test:")
-    print(
-        df_test[
-            [
-                "ds",
-                "days_until_thanksgiving",
-                "days_since_thanksgiving",
-                "days_until_christmas",
-                "days_since_christmas",
-                "days_until_new_year",
-                "days_since_new_year",
-            ]
-        ].to_string(index=False)
-    )
-
-    return df_test
