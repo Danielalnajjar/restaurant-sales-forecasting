@@ -12,6 +12,21 @@ from forecasting.features.spike_days import add_spike_day_features
 logger = logging.getLogger(__name__)
 
 
+def _year_span_for_dates(ds: pd.Series) -> range:
+    """
+    Return an inclusive year range covering all non-null dates in ds.
+    Used to build holidays calendars without hardcoding year bounds.
+    """
+    ds = pd.to_datetime(ds, errors="coerce")
+    years = ds.dropna().dt.year
+    if years.empty:
+        # Safe fallback: no dates => empty range (caller should handle)
+        return range(0, 0)
+    min_year = int(years.min())
+    max_year = int(years.max())
+    return range(min_year, max_year + 1)
+
+
 def build_calendar_features(
     df: pd.DataFrame, ds_col: str = "ds", reference_date: str = "2024-11-19"
 ) -> pd.DataFrame:
@@ -63,7 +78,8 @@ def build_calendar_features(
         df[f"doy_cos_{k}"] = np.cos(2 * np.pi * k * df["dayofyear"] / 365.25)
 
     # US Federal holidays
-    us_holidays = holidays.US(years=range(2024, 2027))
+    years = _year_span_for_dates(df[ds_col])
+    us_holidays = holidays.US(years=years)
     df["is_us_federal_holiday"] = df[ds_col].apply(lambda x: int(x in us_holidays))
 
     # New Year's Eve

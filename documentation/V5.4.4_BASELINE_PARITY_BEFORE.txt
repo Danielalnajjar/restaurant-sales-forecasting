@@ -1,0 +1,45 @@
+V5.4.4 BASELINE EVIDENCE SNAPSHOT (BEFORE CHANGES)
+===================================================
+
+Date: 2026-01-05
+Branch: v5.4.4-10pp-quality (created from v5.4.3-10pp-quality)
+Commit: 1ccfdf8
+
+QUALITY STATUS BEFORE CHANGES
+------------------------------
+
+RUFF CHECK:
+- 7 errors found
+  - 4 errors in tests/test_spike_log_schema.py (I001, E402, E402, E402, F811)
+  - 2 errors in tests/test_spike_priors_recompute_does_not_crash.py (E712 x2)
+  - 1 error in tests/test_spike_log_schema.py (I001)
+
+RUFF FORMAT CHECK:
+- 2 files would be reformatted
+  - tests/test_spike_log_schema.py
+  - tests/test_spike_priors_recompute_does_not_crash.py
+- 41 files already formatted
+
+PYTEST:
+- 41 passed in 6.36s
+- All tests passing
+
+BASELINE FORECAST:
+- Source: outputs/forecasts/forecast_daily_2026.csv
+- Copied to: outputs/forecasts/forecast_daily_2026__BASELINE_V5_4_3.csv
+- Size: 32K (31,795 bytes)
+- This will be used for numeric parity verification after changes
+
+KNOWN GAPS TO FIX IN V5.4.4:
+1. Hardcoded year range in feature_builders.py (CRITICAL)
+2. Debug test in holiday_distance.py (CRITICAL)
+3. Missing scipy dependency
+4. No GitHub Actions CI
+5. 7 ruff linting errors
+
+EXPECTED OUTCOME:
+- 0 ruff errors
+- 0 format issues
+- 41 tests passing
+- $0.00 numeric parity vs baseline
+- True 10/10 production quality
