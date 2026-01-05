@@ -1,4 +1,3 @@
-import pytest
 """
 Test spike uplift log schema (Step 7.5).
 

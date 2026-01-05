@@ -125,4 +125,3 @@ def add_holiday_distance_features(df: pd.DataFrame, clamp_days: int = 60) -> pd.
         df.loc[idx, "days_since_new_year"] = min(min_since, clamp_days)
 
     return df
-
