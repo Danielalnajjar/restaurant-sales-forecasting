@@ -629,28 +629,17 @@ def generate_forecast(
     return df_forecast
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Generate 2026 forecast
-    df_forecast = generate_2026_forecast()
-
-    print("\n=== 2026 Forecast Generated ===")
-    print(f"Total days: {len(df_forecast)}")
-    print(f"Closed days: {df_forecast['is_closed'].sum()}")
-    print(f"Total p50: ${df_forecast['p50'].sum():,.2f}")
-    print("\nSample forecast:")
-    print(df_forecast.head(10).to_string(index=False))
-
-    # Verify guardrails
-    print("\n=== Guardrail Checks ===")
-    print(f"Negative forecasts: {(df_forecast['p50'] < 0).sum()}")
-    print(
-        f"Monotonicity violations: {((df_forecast['p50'] > df_forecast['p80']) | (df_forecast['p80'] > df_forecast['p90'])).sum()}"
-    )
-    print(
-        f"Closed days with non-zero forecast: {((df_forecast['is_closed']) & (df_forecast['p50'] > 0)).sum()}"
-    )
+# Commented out __main__ block (PHASE 6: remove debug blocks with hardcoded paths)
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.INFO)
+#     # Generate 2026 forecast
+#     from forecasting.utils.runtime import load_config
+#     config = load_config()
+#     df_forecast = generate_2026_forecast(config)
+#     print("\n=== 2026 Forecast Generated ===")
+#     print(f"Total days: {len(df_forecast)}")
+#     print(f"Closed days: {df_forecast['is_closed'].sum()}")
+#     print(f"Total p50: ${df_forecast['p50'].sum():,.2f}")
 
 
 # Backward-compatible alias

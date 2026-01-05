@@ -184,19 +184,19 @@ def format_year_path(template: str, year: int) -> Path:
     """
     Format a path template containing '{year}' with the given year.
     Returns a Path. Does not check existence.
-    
+
     Parameters
     ----------
     template : str
         Path template with {year} placeholder
     year : int
         Year to substitute
-        
+
     Returns
     -------
     Path
         Formatted path
-        
+
     Examples
     --------
     >>> format_year_path("data/events_{year}.csv", 2027)
@@ -208,24 +208,24 @@ def format_year_path(template: str, year: int) -> Path:
 def forecast_year_from_config(config: Dict[str, Any]) -> int:
     """
     Extract forecast year from config's forecast_start.
-    
+
     Parameters
     ----------
     config : dict
         Configuration dictionary with forecast_start
-        
+
     Returns
     -------
     int
         Forecast year (e.g., 2026, 2027)
-        
+
     Examples
     --------
     >>> forecast_year_from_config({"forecast_start": "2027-01-01", "forecast_end": "2027-12-31"})
     2027
     """
     import pandas as pd
-    
+
     start, _ = get_forecast_window(config)
     # Parse as timestamp to handle both string and date objects
     return int(pd.Timestamp(start).year)

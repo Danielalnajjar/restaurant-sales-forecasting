@@ -368,24 +368,18 @@ def build_events_daily_forecast(
     return df_features
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    # Build historical event features
-    df_history = build_events_daily_history()
-
-    # Build 2026 event features
-    df_2026 = build_events_daily_2026()
-
-    print("\nEvent features complete!")
-    print(f"History: {len(df_history)} days, {len(df_history.columns)} features")
-    print(f"2026: {len(df_2026)} days, {len(df_2026.columns)} features")
-    print(
-        f"\nHistory events_active_total: min={df_history['events_active_total'].min()}, max={df_history['events_active_total'].max()}, mean={df_history['events_active_total'].mean():.2f}"
-    )
-    print(
-        f"2026 events_active_total: min={df_2026['events_active_total'].min()}, max={df_2026['events_active_total'].max()}, mean={df_2026['events_active_total'].mean():.2f}"
-    )
+# Commented out __main__ block (PHASE 6: remove debug blocks with hardcoded paths)
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.INFO)
+#     # Build historical event features
+#     df_history = build_events_daily_history()
+#     # Build 2026 event features
+#     from forecasting.utils.runtime import load_config
+#     config = load_config()
+#     df_2026 = build_events_daily_2026(config)
+#     print("\nEvent features complete!")
+#     print(f"History: {len(df_history)} days, {len(df_history.columns)} features")
+#     print(f"2026: {len(df_2026)} days, {len(df_2026.columns)} features")
 
 
 # Backward-compatible alias

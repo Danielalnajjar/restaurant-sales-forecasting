@@ -116,7 +116,7 @@ def compute_event_uplift_priors(
                     event_date_range_2024 = pd.date_range(start=start_2024, end=end_2024, freq="D")
                     event_days_2024 = [d for d in event_date_range_2024 if d <= ds_max_ts]
                 except Exception as e:
-                    logger.debug(f"Skipping 2024 dates for {family} (likely leap year issue): {e}")
+                    logger.debug(f"Skipping 2024 dates for {event_family} (likely leap year issue): {e}")
                     pass
 
         # Combine 2025 and 2024 event days
