@@ -1,8 +1,9 @@
 {
-  "timestamp_utc": "2026-01-03T22:43:31.658152Z",
-  "git_commit": "58fbcca5e58823df2f9ef41576ad00269bab4e1c",
-  "config_path": "/home/ubuntu/forecasting/configs/config.yaml",
-  "config_hash": "94cb5c3b77d4348414dd232346eab03139558a2a22398820b7ff63631385cc6d",
+  "timestamp_utc": "2026-01-05T08:11:23.965693Z",
+  "git_commit": "c6854b0f9f9ee38af02694ffbdc36a63481327dd",
+  "project_root": "/home/ubuntu/forecasting",
+  "config_path": "configs/config.yaml",
+  "config_hash": "1356140ce4608aa593d7cd56e34c6ab5afe723eb5edd5acef964748913eee616",
   "data_through": "2025-12-31",
   "forecast_start": "2026-01-01",
   "forecast_end": "2026-12-31",
@@ -13,9 +14,9 @@
   "spike_days_adjusted": 15,
   "calibration_mode": "monthly",
   "outputs": {
-    "forecast_daily": "/home/ubuntu/forecasting/outputs/forecasts/forecast_daily_2026.csv",
-    "rollups_ordering": "/home/ubuntu/forecasting/outputs/forecasts/rollups_ordering_2026.csv",
-    "rollups_scheduling": "/home/ubuntu/forecasting/outputs/forecasts/rollups_scheduling_2026.csv",
-    "run_log": "/home/ubuntu/forecasting/outputs/reports/run_log_2026.json"
+    "forecast_daily": "outputs/forecasts/forecast_daily_2026.csv",
+    "rollups_ordering": "outputs/forecasts/rollups_ordering_2026.csv",
+    "rollups_scheduling": "outputs/forecasts/rollups_scheduling_2026.csv",
+    "run_log": "outputs/reports/run_log_2026.json"
   }
 }
