@@ -133,5 +133,3 @@ class WeekdayRollingMedian:
             )
 
         return pd.DataFrame(predictions)
-
-

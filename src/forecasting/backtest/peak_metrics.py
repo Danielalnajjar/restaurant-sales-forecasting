@@ -146,5 +146,3 @@ def compute_combined_score(metrics: dict, weights: dict = None) -> float:
     )
 
     return score
-
-

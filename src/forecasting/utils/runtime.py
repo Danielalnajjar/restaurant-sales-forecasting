@@ -231,7 +231,6 @@ def forecast_year_from_config(config: Dict[str, Any]) -> int:
     return int(pd.Timestamp(start).year)
 
 
-
 def resolve_year_path(
     config: dict,
     template_key: str,

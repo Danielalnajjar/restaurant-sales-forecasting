@@ -19,10 +19,7 @@ from forecasting.utils.runtime import forecast_slug, get_forecast_window
 
 def test_get_forecast_window_2026():
     """Test forecast window extraction for 2026."""
-    config = {
-        "forecast_start": "2026-01-01",
-        "forecast_end": "2026-12-31"
-    }
+    config = {"forecast_start": "2026-01-01", "forecast_end": "2026-12-31"}
     start, end = get_forecast_window(config)
     assert start == "2026-01-01"
     assert end == "2026-12-31"
@@ -30,10 +27,7 @@ def test_get_forecast_window_2026():
 
 def test_get_forecast_window_2027():
     """Test forecast window extraction for 2027."""
-    config = {
-        "forecast_start": "2027-01-01",
-        "forecast_end": "2027-12-31"
-    }
+    config = {"forecast_start": "2027-01-01", "forecast_end": "2027-12-31"}
     start, end = get_forecast_window(config)
     assert start == "2027-01-01"
     assert end == "2027-12-31"
@@ -71,10 +65,7 @@ def test_forecast_slug_partial_year():
 def test_forecast_window_validation():
     """Test that invalid windows raise errors."""
     # End before start
-    config = {
-        "forecast_start": "2026-12-31",
-        "forecast_end": "2026-01-01"
-    }
+    config = {"forecast_start": "2026-12-31", "forecast_end": "2026-01-01"}
     with pytest.raises(ValueError, match="must be >= forecast_start"):
         get_forecast_window(config)
 

@@ -272,5 +272,3 @@ class EnsembleModel:
         df_weights = pd.DataFrame(rows)
         df_weights.to_csv(path, index=False)
         logger.info(f"Saved ensemble weights to {path}")
-
-

@@ -251,5 +251,3 @@ def build_features_long(
     df = df.merge(df_events.rename(columns={"ds": "target_date"}), on="target_date", how="left")
 
     return df
-
-

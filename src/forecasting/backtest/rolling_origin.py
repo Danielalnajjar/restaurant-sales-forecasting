@@ -188,5 +188,3 @@ def run_baseline_backtest(
     logger.info(f"Saved predictions to {output_preds_path}")
 
     return df_metrics, df_preds
-
-

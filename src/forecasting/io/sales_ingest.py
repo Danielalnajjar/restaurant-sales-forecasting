@@ -169,5 +169,3 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     output_path_obj.write_text(report)
     logger.info(f"Saved audit report to {output_path}")
-
-

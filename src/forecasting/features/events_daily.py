@@ -368,7 +368,6 @@ def build_events_daily_forecast(
     return df_features
 
 
-
 # Backward-compatible alias (V5.4.2+)
 def build_events_daily_2026(config: dict) -> pd.DataFrame:
     """

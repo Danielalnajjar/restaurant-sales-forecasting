@@ -24,7 +24,9 @@ def calculate_open_minutes(open_time_str: str, close_time_str: str) -> int:
 
         return close_mins - open_mins
     except Exception as e:
-        logger.warning(f"Failed to calculate open minutes for {open_time_str}-{close_time_str}: {e}")
+        logger.warning(
+            f"Failed to calculate open minutes for {open_time_str}-{close_time_str}: {e}"
+        )
         return 0
 
 
@@ -229,5 +231,3 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     output_path_obj.write_text(report)
     logger.info(f"Saved hours audit report to {output_path}")
-
-

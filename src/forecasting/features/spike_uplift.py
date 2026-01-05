@@ -305,6 +305,3 @@ def save_spike_uplift_log(df_forecast: pd.DataFrame, output_path: str):
     logger.info(
         f"Saved spike uplift log to {output_path} ({len(log_df)} days with flags, {n_actually_adjusted} actually adjusted)"
     )
-
-
-

@@ -292,5 +292,3 @@ def build_inference_features_2026(
     logger.info(f"Saved long-horizon 2026 features to {output_long_path} ({len(df_inf_long)} rows)")
 
     return df_inf_short, df_inf_long
-
-

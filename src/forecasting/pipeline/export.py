@@ -373,6 +373,7 @@ def generate_forecast(
                 # Per V5.4.3 PHASE 4: Write stable pointer as exact copy of slugged log
                 spike_log_path_stable = reports_dir / "spike_uplift_log.csv"
                 import shutil
+
                 shutil.copy2(spike_log_path_slug, spike_log_path_stable)
                 logger.info(f"Copied {spike_log_path_slug.name} to {spike_log_path_stable.name}")
                 logger.info("Spike uplift overlay applied successfully (V5.4.3)")
@@ -443,6 +444,7 @@ def generate_forecast(
                 # Per V5.4.3 PHASE 4: Write stable pointer as exact copy
                 growth_log_path_stable = reports_dir / "growth_calibration_log.csv"
                 import shutil
+
                 shutil.copy2(growth_log_path_slug, growth_log_path_stable)
                 logger.info(f"Growth calibration log saved: {growth_log_path_slug} (V5.4.3)")
 
@@ -501,8 +503,11 @@ def generate_forecast(
                 # Per V5.4.3 PHASE 4: Write stable pointer as exact copy
                 monthly_scales_path_stable = reports_dir / "monthly_calibration_scales.csv"
                 import shutil
+
                 shutil.copy2(monthly_scales_path_slug, monthly_scales_path_stable)
-                logger.info(f"Monthly calibration scales saved: {monthly_scales_path_slug} (V5.4.3)")
+                logger.info(
+                    f"Monthly calibration scales saved: {monthly_scales_path_slug} (V5.4.3)"
+                )
 
                 logger.info(
                     f"Growth calibration applied: mode=monthly, target={TARGET_YOY_GROWTH:+.1%}"
@@ -658,9 +663,6 @@ def generate_forecast(
     logger.info(f"Saved scheduling rollup to {output_scheduling_path}")
 
     return df_forecast
-
-
-
 
 
 # Backward-compatible alias (V5.4.2+)

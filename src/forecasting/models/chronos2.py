@@ -302,5 +302,3 @@ def run_chronos2_backtest(
     logger.info(f"Saved Chronos-2 metrics to {output_metrics_path}")
 
     return df_metrics, df_preds
-
-

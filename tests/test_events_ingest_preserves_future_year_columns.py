@@ -30,7 +30,9 @@ def test_recurring_mapping_ingest_preserves_future_year_columns(tmp_path: Path):
     # Import ingestion function
     from forecasting.io.events_ingest import ingest_recurring_event_mapping
 
-    out = ingest_recurring_event_mapping(input_path=str(path), output_path=str(tmp_path / "out.parquet"))
+    out = ingest_recurring_event_mapping(
+        input_path=str(path), output_path=str(tmp_path / "out.parquet")
+    )
 
     # Must preserve all year columns (including 2027)
     assert "start_2027" in out.columns, "start_2027 column missing"
@@ -64,7 +66,9 @@ def test_recurring_mapping_ingest_handles_missing_optional_columns(tmp_path: Pat
 
     from forecasting.io.events_ingest import ingest_recurring_event_mapping
 
-    out = ingest_recurring_event_mapping(input_path=str(path), output_path=str(tmp_path / "out.parquet"))
+    out = ingest_recurring_event_mapping(
+        input_path=str(path), output_path=str(tmp_path / "out.parquet")
+    )
 
     # Should create event_family_ascii automatically
     assert "event_family_ascii" in out.columns

@@ -6,12 +6,19 @@ import sys
 from pathlib import Path
 
 from forecasting.backtest.rolling_origin import run_baseline_backtest
+
 # Per V5.4.3 PHASE 5: Use generic names internally
 from forecasting.features.build_datasets import build_inference_features_2026, build_train_datasets
 from forecasting.features.event_uplift import compute_event_uplift_priors, generate_uplift_report
-from forecasting.features.events_daily import build_events_daily_forecast, build_events_daily_history
+from forecasting.features.events_daily import (
+    build_events_daily_forecast,
+    build_events_daily_history,
+)
 from forecasting.io.events_ingest import ingest_events_2026_exact, ingest_recurring_event_mapping
-from forecasting.io.hours_calendar import build_hours_calendar_forecast, build_hours_calendar_history
+from forecasting.io.hours_calendar import (
+    build_hours_calendar_forecast,
+    build_hours_calendar_history,
+)
 
 # Import all pipeline components
 from forecasting.io.sales_ingest import ingest_sales
@@ -65,8 +72,8 @@ def run_pipeline(
     from forecasting.utils.runtime import (
         forecast_slug,
         forecast_year_from_config,
-        resolve_year_path,
         get_forecast_window,
+        resolve_year_path,
     )
 
     forecast_start, forecast_end = get_forecast_window(config)

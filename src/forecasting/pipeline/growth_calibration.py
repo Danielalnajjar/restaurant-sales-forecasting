@@ -271,6 +271,3 @@ def _apply_monthly_calibration(
     )
 
     return df
-
-
-

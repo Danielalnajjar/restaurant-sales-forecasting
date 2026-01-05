@@ -3,7 +3,6 @@ Test that backward-compatible wrappers still work after renaming to generic name
 """
 
 
-
 def test_generate_2026_forecast_wrapper_exists():
     """Test that generate_2026_forecast wrapper still exists and imports."""
     from forecasting.pipeline.export import generate_2026_forecast

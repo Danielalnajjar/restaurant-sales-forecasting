@@ -174,7 +174,9 @@ def ingest_recurring_event_mapping(
             if end_col in df_clean.columns:
                 invalid = df_clean[year_col] > df_clean[end_col]
                 if invalid.any():
-                    logger.warning(f"Found {invalid.sum()} rows with {year_col} > {end_col}. Fixing...")
+                    logger.warning(
+                        f"Found {invalid.sum()} rows with {year_col} > {end_col}. Fixing..."
+                    )
                     mask = invalid
                     df_clean.loc[mask, [year_col, end_col]] = df_clean.loc[
                         mask, [end_col, year_col]
@@ -247,5 +249,3 @@ Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     output_path_obj.write_text(report)
     logger.info(f"Saved events audit report to {output_path}")
-
-

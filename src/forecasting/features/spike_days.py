@@ -183,5 +183,3 @@ def add_event_regime_features(df: pd.DataFrame, events_daily_df: pd.DataFrame) -
         df = df.drop(columns=["_active", "_group"])
 
     return df
-
-

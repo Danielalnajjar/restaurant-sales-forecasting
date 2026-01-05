@@ -14,12 +14,14 @@ def test_slugged_log_paths_in_output():
     if not reports_dir.exists():
         # No outputs yet, skip test
         import pytest
+
         pytest.skip("No outputs directory found (run pipeline first)")
 
     # Find most recent run_log
     run_logs = list(reports_dir.glob("run_log_*.json"))
     if not run_logs:
         import pytest
+
         pytest.skip("No run logs found (run pipeline first)")
 
     latest_run_log = max(run_logs, key=lambda p: p.stat().st_mtime)
@@ -52,6 +54,7 @@ def test_stable_pointer_logs_exist():
 
     if not reports_dir.exists():
         import pytest
+
         pytest.skip("No outputs directory found (run pipeline first)")
 
     # Check for stable pointers

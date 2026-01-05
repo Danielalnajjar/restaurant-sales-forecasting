@@ -160,5 +160,3 @@ def test_holiday_distance_features():
     )
 
     return df_test
-
-
