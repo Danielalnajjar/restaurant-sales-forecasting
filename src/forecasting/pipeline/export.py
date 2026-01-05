@@ -15,6 +15,37 @@ from forecasting.models.gbm_short import GBMShortHorizon
 logger = logging.getLogger(__name__)
 
 
+def _to_relpath(absolute_path: str | Path, project_root: Path) -> str:
+    """
+    Convert absolute path to relative path from project root.
+
+    Per V5.4.3 PHASE 3: Make run_log.json portable.
+
+    Parameters
+    ----------
+    absolute_path : str or Path
+        Absolute path to convert
+    project_root : Path
+        Project root directory
+
+    Returns
+    -------
+    str
+        Relative path from project root
+
+    Examples
+    --------
+    >>> _to_relpath("/home/ubuntu/forecasting/outputs/forecasts/forecast_daily_2026.csv",
+    ...             Path("/home/ubuntu/forecasting"))
+    'outputs/forecasts/forecast_daily_2026.csv'
+    """
+    try:
+        return str(Path(absolute_path).relative_to(project_root))
+    except ValueError:
+        # Path is not relative to project_root, return as-is
+        return str(absolute_path)
+
+
 def apply_guardrails(df: pd.DataFrame, df_hours: pd.DataFrame) -> pd.DataFrame:
     """
     Apply guardrails to forecasts.
@@ -526,10 +557,12 @@ def generate_forecast(
     if "n_adjusted" in locals():
         spike_days_adjusted = int(n_adjusted)
 
+    # Per V5.4.3 PHASE 3: Use relative paths in run_log for portability
     run_log = {
         "timestamp_utc": datetime.utcnow().isoformat() + "Z",
         "git_commit": get_git_commit(),
-        "config_path": str(config_path) if config_path else "unknown",
+        "project_root": str(root),  # Added for context
+        "config_path": _to_relpath(config_path, root) if config_path else "unknown",
         "config_hash": config_hash if config_hash else "unknown",
         "data_through": str(data_through),
         "forecast_start": forecast_start,
@@ -541,10 +574,10 @@ def generate_forecast(
         "spike_days_adjusted": spike_days_adjusted,
         "calibration_mode": calibration_mode_used,
         "outputs": {
-            "forecast_daily": output_daily_path,
-            "rollups_ordering": output_ordering_path,
-            "rollups_scheduling": output_scheduling_path,
-            "run_log": str(reports_dir / f"run_log_{slug}.json"),
+            "forecast_daily": _to_relpath(output_daily_path, root),
+            "rollups_ordering": _to_relpath(output_ordering_path, root),
+            "rollups_scheduling": _to_relpath(output_scheduling_path, root),
+            "run_log": _to_relpath(reports_dir / f"run_log_{slug}.json", root),
         },
     }
     # Save run log with slug
@@ -629,3 +662,34 @@ def generate_forecast(
     return df_forecast
 
 
+
+
+
+# Backward-compatible alias (V5.4.2+)
+def generate_2026_forecast(
+    config: dict,
+    config_path: str | None = None,
+    config_hash: str | None = None,
+    hours_2026_path: str | None = None,
+    inference_short_path: str | None = None,
+    inference_long_path: str | None = None,
+    output_daily_path: str | None = None,
+    output_ordering_path: str | None = None,
+    output_scheduling_path: str | None = None,
+) -> pd.DataFrame:
+    """
+    Backward-compatible wrapper for generate_forecast().
+
+    Per V5.4.2 PHASE 5: Generic naming with backward compatibility.
+    """
+    return generate_forecast(
+        config=config,
+        config_path=config_path,
+        config_hash=config_hash,
+        hours_2026_path=hours_2026_path,
+        inference_short_path=inference_short_path,
+        inference_long_path=inference_long_path,
+        output_daily_path=output_daily_path,
+        output_ordering_path=output_ordering_path,
+        output_scheduling_path=output_scheduling_path,
+    )

@@ -368,3 +368,22 @@ def build_events_daily_forecast(
     return df_features
 
 
+
+# Backward-compatible alias (V5.4.2+)
+def build_events_daily_2026(config: dict) -> pd.DataFrame:
+    """
+    Backward-compatible wrapper for build_events_daily_forecast().
+
+    Per V5.4.2 PHASE 5: Generic naming with backward compatibility.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary
+
+    Returns
+    -------
+    pd.DataFrame
+        Event features for forecast period
+    """
+    return build_events_daily_forecast(config)
