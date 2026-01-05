@@ -61,14 +61,17 @@ def test_spike_flag_nan_safe_casting():
     )
 
     # Minimal behavior check: None should not become True after casting
-    df_open = df[df["is_closed"] .is_false()].copy()
+    df_open = df[~df["is_closed"]].copy()
     df_open["is_black_friday"] = df_open["is_black_friday"].fillna(False).astype(bool)
 
+    # Use == for numpy bool comparison (not `is`)
     assert (
-        df_open.loc[df_open["ds"] == pd.Timestamp("2025-11-28"), "is_black_friday"].iloc[0] .is_true()
+        df_open.loc[df_open["ds"] == pd.Timestamp("2025-11-28"), "is_black_friday"].iloc[0]
+        == True  # noqa: E712
     )
     assert (
-        df_open.loc[df_open["ds"] == pd.Timestamp("2025-11-29"), "is_black_friday"].iloc[0] .is_false()
+        df_open.loc[df_open["ds"] == pd.Timestamp("2025-11-29"), "is_black_friday"].iloc[0]
+        == False  # noqa: E712
     )
 
 

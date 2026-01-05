@@ -35,8 +35,8 @@ def _to_relpath(absolute_path: str | Path, project_root: Path) -> str:
 
     Examples
     --------
-    >>> _to_relpath("/home/ubuntu/forecasting/outputs/forecasts/forecast_daily_2026.csv",
-    ...             Path("/home/ubuntu/forecasting"))
+    >>> _to_relpath("/path/to/project/outputs/forecasts/forecast_daily_2026.csv",
+    ...             Path("/path/to/project"))
     'outputs/forecasts/forecast_daily_2026.csv'
     """
     try:
