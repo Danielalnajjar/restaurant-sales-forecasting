@@ -370,16 +370,12 @@ def generate_forecast(
                 # Save adjustment log (slugged + stable pointer)
                 spike_log_path_slug = reports_dir / f"spike_uplift_log_{slug}.csv"
                 save_spike_uplift_log(df_forecast=df_forecast, output_path=str(spike_log_path_slug))
-                # Write stable pointer
+                # Per V5.4.3 PHASE 4: Write stable pointer as exact copy of slugged log
                 spike_log_path_stable = reports_dir / "spike_uplift_log.csv"
-                df_forecast[
-                    [
-                        c
-                        for c in df_forecast.columns
-                        if c in ["ds", "is_closed", "spike_multiplier", "is_adjusted", "flags_hit"]
-                    ]
-                ].to_csv(spike_log_path_stable, index=False)
-                logger.info("Spike uplift overlay applied successfully (V5.1)")
+                import shutil
+                shutil.copy2(spike_log_path_slug, spike_log_path_stable)
+                logger.info(f"Copied {spike_log_path_slug.name} to {spike_log_path_stable.name}")
+                logger.info("Spike uplift overlay applied successfully (V5.4.3)")
 
         except Exception as e:
             logger.error(f"Spike uplift overlay failed: {e}")
@@ -444,10 +440,11 @@ def generate_forecast(
                 # Save calibration log (slugged + stable pointer)
                 growth_log_path_slug = reports_dir / f"growth_calibration_log_{slug}.csv"
                 df_growth_log.to_csv(growth_log_path_slug, index=False)
-                # Write stable pointer
+                # Per V5.4.3 PHASE 4: Write stable pointer as exact copy
                 growth_log_path_stable = reports_dir / "growth_calibration_log.csv"
-                df_growth_log.to_csv(growth_log_path_stable, index=False)
-                logger.info(f"Growth calibration log saved: {growth_log_path_slug} (V5.2)")
+                import shutil
+                shutil.copy2(growth_log_path_slug, growth_log_path_stable)
+                logger.info(f"Growth calibration log saved: {growth_log_path_slug} (V5.4.3)")
 
                 # V5.2: Generate monthly calibration scales summary
                 df_monthly_scales = (
@@ -501,10 +498,11 @@ def generate_forecast(
                 # Save monthly scales summary (slugged + stable pointer)
                 monthly_scales_path_slug = reports_dir / f"monthly_calibration_scales_{slug}.csv"
                 df_monthly_scales.to_csv(monthly_scales_path_slug, index=False)
-                # Write stable pointer
+                # Per V5.4.3 PHASE 4: Write stable pointer as exact copy
                 monthly_scales_path_stable = reports_dir / "monthly_calibration_scales.csv"
-                df_monthly_scales.to_csv(monthly_scales_path_stable, index=False)
-                logger.info(f"Monthly calibration scales saved: {monthly_scales_path_slug} (V5.2)")
+                import shutil
+                shutil.copy2(monthly_scales_path_slug, monthly_scales_path_stable)
+                logger.info(f"Monthly calibration scales saved: {monthly_scales_path_slug} (V5.4.3)")
 
                 logger.info(
                     f"Growth calibration applied: mode=monthly, target={TARGET_YOY_GROWTH:+.1%}"
