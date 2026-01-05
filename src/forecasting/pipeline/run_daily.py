@@ -126,7 +126,6 @@ def run_pipeline(
         # Step 2: Build hours calendars
         logger.info("\n[2/9] Building hours calendars...")
         build_hours_calendar_forecast(
-            config=config,
             calendar_path=str(hours_calendar_path),
             overrides_path=str(hours_overrides_path),
         )
