@@ -61,11 +61,36 @@ def run_pipeline(
     logger.info(f"Config hash: {config_hash[:8]}...")
 
     # Get forecast window and slug
-    from forecasting.utils.runtime import forecast_slug, get_forecast_window
+    from forecasting.utils.runtime import (
+        forecast_slug,
+        forecast_year_from_config,
+        format_year_path,
+        get_forecast_window,
+    )
 
     forecast_start, forecast_end = get_forecast_window(config)
     slug = forecast_slug(forecast_start, forecast_end)
-    logger.info(f"Forecast period: {forecast_start} to {forecast_end} (slug: {slug})")
+    forecast_year = forecast_year_from_config(config)
+    logger.info(
+        f"Forecast period: {forecast_start} to {forecast_end} (year: {forecast_year}, slug: {slug})"
+    )
+
+    # Resolve year-based raw input paths from templates
+    events_exact_path = format_year_path(
+        config["paths"]["raw_events_exact_template"], forecast_year
+    )
+    hours_calendar_path = format_year_path(
+        config["paths"]["raw_hours_calendar_template"], forecast_year
+    )
+    hours_overrides_path = format_year_path(
+        config["paths"]["raw_hours_overrides_template"], forecast_year
+    )
+    recurring_mapping_path = Path(config["paths"]["raw_recurring_mapping_template"])
+
+    logger.info(f"Raw events path: {events_exact_path}")
+    logger.info(f"Raw hours calendar path: {hours_calendar_path}")
+    logger.info(f"Raw hours overrides path: {hours_overrides_path}")
+    logger.info(f"Raw recurring mapping path: {recurring_mapping_path}")
 
     try:
         # Step 1: Ingest sales
@@ -74,13 +99,16 @@ def run_pipeline(
 
         # Step 2: Build hours calendars
         logger.info("\n[2/9] Building hours calendars...")
-        build_hours_calendar_2026()
+        build_hours_calendar_2026(
+            calendar_path=str(hours_calendar_path),
+            overrides_path=str(hours_overrides_path),
+        )
         build_hours_calendar_history()
 
         # Step 3: Ingest events
         logger.info("\n[3/9] Ingesting and normalizing events...")
-        ingest_events_2026_exact()
-        ingest_recurring_event_mapping()
+        ingest_events_2026_exact(input_path=str(events_exact_path))
+        ingest_recurring_event_mapping(input_path=str(recurring_mapping_path))
 
         # Step 4: Build event features
         logger.info("\n[4/9] Building event daily features...")

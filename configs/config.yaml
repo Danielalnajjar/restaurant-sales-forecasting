@@ -51,6 +51,14 @@ spike_uplift:
 paths:
   # Raw data
   raw_sales: data/raw/Sales by day.csv
+  
+  # Year-template raw inputs (enables config-only 2027+)
+  raw_events_exact_template: "data/events/events_{year}_exact_dates_clean_v2.csv"
+  raw_hours_calendar_template: "data/raw/hours_calendar_{year}_v2.csv"
+  raw_hours_overrides_template: "data/raw/hours_overrides_{year}_v2.csv"
+  raw_recurring_mapping_template: "data/events/recurring_event_mapping_2025_2026_clean.csv"
+  
+  # Legacy 2026-specific paths (kept for backward compatibility)
   raw_hours_calendar_2026: data/raw/hours_calendar_2026_v2.csv
   raw_hours_overrides_2026: data/raw/hours_overrides_2026_v2.csv
   raw_events_2026_exact: data/events/events_2026_exact_dates_clean_v2.csv
