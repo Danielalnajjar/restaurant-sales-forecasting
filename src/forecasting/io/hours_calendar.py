@@ -50,13 +50,13 @@ def get_default_hours(ds: pd.Timestamp) -> tuple:
         return "11:00", "19:00", 480
 
 
-def build_hours_calendar_2026(
+def build_hours_calendar_forecast(
     calendar_path: str = "data/raw/hours_calendar_2026_v2.csv",
     overrides_path: str = "data/raw/hours_overrides_2026_v2.csv",
     output_path: str = "data/processed/hours_calendar_2026.parquet",
 ) -> pd.DataFrame:
     """
-    Build 2026 hours calendar with overrides applied.
+    Build forecast period hours calendar with overrides applied.
 
     Returns DataFrame with columns: ds, open_time_local, close_time_local, open_minutes, is_closed
     """
@@ -102,6 +102,20 @@ def build_hours_calendar_2026(
     logger.info(f"Saved 2026 hours calendar to {output_path} ({len(df_result)} rows)")
 
     return df_result
+
+
+# Backward-compatible alias
+def build_hours_calendar_2026(
+    calendar_path: str = "data/raw/hours_calendar_2026_v2.csv",
+    overrides_path: str = "data/raw/hours_overrides_2026_v2.csv",
+    output_path: str = "data/processed/hours_calendar_2026.parquet",
+) -> pd.DataFrame:
+    """Backward-compatible wrapper for build_hours_calendar_forecast()."""
+    return build_hours_calendar_forecast(
+        calendar_path=calendar_path,
+        overrides_path=overrides_path,
+        output_path=output_path,
+    )
 
 
 def build_hours_calendar_history(

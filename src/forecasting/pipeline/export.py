@@ -104,7 +104,7 @@ def apply_overrides(
     return df
 
 
-def generate_2026_forecast(
+def generate_forecast(
     config: dict,
     config_path: str | None = None,
     config_hash: str | None = None,
@@ -650,4 +650,40 @@ if __name__ == "__main__":
     )
     print(
         f"Closed days with non-zero forecast: {((df_forecast['is_closed']) & (df_forecast['p50'] > 0)).sum()}"
+    )
+
+
+# Backward-compatible alias
+def generate_2026_forecast(
+    config: dict,
+    config_path: str | None = None,
+    config_hash: str | None = None,
+    sales_fact_path: str = "data/processed/fact_sales_daily.parquet",
+    hours_2026_path: str | None = None,
+    events_2026_path: str | None = None,
+    hours_history_path: str = "data/processed/hours_calendar_history.parquet",
+    events_history_path: str = "data/processed/features/events_daily_history.parquet",
+    inf_short_path: str | None = None,
+    inf_long_path: str | None = None,
+    ensemble_weights_path: str = "outputs/models/ensemble_weights.csv",
+    output_daily_path: str | None = None,
+    output_ordering_path: str | None = None,
+    output_scheduling_path: str | None = None,
+) -> pd.DataFrame:
+    """Backward-compatible wrapper for generate_forecast()."""
+    return generate_forecast(
+        config=config,
+        config_path=config_path,
+        config_hash=config_hash,
+        sales_fact_path=sales_fact_path,
+        hours_2026_path=hours_2026_path,
+        events_2026_path=events_2026_path,
+        hours_history_path=hours_history_path,
+        events_history_path=events_history_path,
+        inf_short_path=inf_short_path,
+        inf_long_path=inf_long_path,
+        ensemble_weights_path=ensemble_weights_path,
+        output_daily_path=output_daily_path,
+        output_ordering_path=output_ordering_path,
+        output_scheduling_path=output_scheduling_path,
     )

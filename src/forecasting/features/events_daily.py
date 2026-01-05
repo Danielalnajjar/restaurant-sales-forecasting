@@ -197,7 +197,7 @@ def build_events_daily_history(
     return df_features
 
 
-def build_events_daily_2026(
+def build_events_daily_forecast(
     config: dict,
     exact_events_path: str | None = None,
     recurring_mapping_path: str = "data/processed/recurring_event_mapping.parquet",
@@ -385,4 +385,22 @@ if __name__ == "__main__":
     )
     print(
         f"2026 events_active_total: min={df_2026['events_active_total'].min()}, max={df_2026['events_active_total'].max()}, mean={df_2026['events_active_total'].mean():.2f}"
+    )
+
+
+# Backward-compatible alias
+def build_events_daily_2026(
+    config: dict,
+    exact_events_path: str | None = None,
+    recurring_mapping_path: str = "data/processed/recurring_event_mapping.parquet",
+    output_path: str | None = None,
+    top_k_families: int = 40,
+) -> pd.DataFrame:
+    """Backward-compatible wrapper for build_events_daily_forecast()."""
+    return build_events_daily_forecast(
+        config=config,
+        exact_events_path=exact_events_path,
+        recurring_mapping_path=recurring_mapping_path,
+        output_path=output_path,
+        top_k_families=top_k_families,
     )
