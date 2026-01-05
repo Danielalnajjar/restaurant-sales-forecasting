@@ -23,7 +23,8 @@ def calculate_open_minutes(open_time_str: str, close_time_str: str) -> int:
         close_mins = close_time.hour * 60 + close_time.minute
 
         return close_mins - open_mins
-    except:
+    except Exception as e:
+        logger.warning(f"Failed to calculate open minutes for {open_time_str}-{close_time_str}: {e}")
         return 0
 
 

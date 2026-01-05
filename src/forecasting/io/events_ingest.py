@@ -48,7 +48,8 @@ def ingest_events_2026_exact(
     # Read CSV with encoding handling
     try:
         df = pd.read_csv(input_path, encoding="utf-8-sig")
-    except:
+    except Exception as e:
+        logger.warning(f"UTF-8 encoding failed ({e}), trying latin1")
         df = pd.read_csv(input_path, encoding="latin1")
 
     # Normalize column names
@@ -123,7 +124,8 @@ def ingest_recurring_event_mapping(
     # Read CSV
     try:
         df = pd.read_csv(input_path, encoding="utf-8-sig")
-    except:
+    except Exception as e:
+        logger.warning(f"UTF-8 encoding failed ({e}), trying latin1")
         df = pd.read_csv(input_path, encoding="latin1")
 
     # Normalize column names
