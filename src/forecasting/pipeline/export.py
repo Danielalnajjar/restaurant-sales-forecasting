@@ -588,9 +588,8 @@ def generate_forecast(
 
     # Write a stable pointer to the latest run log (exact copy of slugged log)
     run_log_latest_path = reports_dir / "run_log.json"
-    with open(run_log_latest_path, "w") as f:
-        json.dump(run_log, f, indent=2)
-    logger.info(f"Saved stable pointer to {run_log_latest_path}")
+    shutil.copy2(run_log_path, run_log_latest_path)
+    logger.info(f"Copied {run_log_path.name} to {run_log_latest_path.name}")
 
     # Generate rollups (aligned to operations)
     logger.info("Generating rollups...")
