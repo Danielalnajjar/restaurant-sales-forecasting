@@ -11,8 +11,33 @@ from forecasting.models.chronos2 import Chronos2Model
 from forecasting.models.ensemble import EnsembleModel
 from forecasting.models.gbm_long import GBMLongHorizon
 from forecasting.models.gbm_short import GBMShortHorizon
+from forecasting.utils.runtime import forecast_year_from_config
 
 logger = logging.getLogger(__name__)
+
+
+def _select_baseline_year(df_hist: pd.DataFrame) -> int:
+    """
+    Select baseline year using the same logic as growth calibration.
+    
+    If max_date in history is Dec 31 → baseline_year = max_year
+    Else baseline_year = max_year - 1
+    
+    Parameters
+    ----------
+    df_hist : pd.DataFrame
+        Historical sales dataframe with 'ds' column
+        
+    Returns
+    -------
+    int
+        Baseline year to use
+    """
+    max_date = pd.to_datetime(df_hist["ds"]).max()
+    max_year = max_date.year
+    if max_date.month == 12 and max_date.day == 31:
+        return max_year
+    return max_year - 1
 
 
 def _to_relpath(absolute_path: str | Path, project_root: Path) -> str:
@@ -449,6 +474,10 @@ def generate_forecast(
                 logger.info(f"Growth calibration log saved: {growth_log_path_slug} (V5.4.3)")
 
                 # V5.2: Generate monthly calibration scales summary
+                # V5.4.5: Compute forecast_year and baseline_year (year-agnostic)
+                forecast_year = forecast_year_from_config(config)
+                baseline_year = _select_baseline_year(df_sales)
+                
                 df_monthly_scales = (
                     df_growth_log[~df_growth_log["is_excluded"]]
                     .groupby("month")
@@ -462,21 +491,24 @@ def generate_forecast(
                     "forecast_nonspike_total_after",
                 ]
 
-                # Add baseline and target totals
+                # Add baseline and target totals (year-agnostic column names)
                 df_sales["month"] = pd.to_datetime(df_sales["ds"]).dt.month
-                baseline_year = pd.to_datetime(df_sales["ds"]).dt.year.max()
                 df_sales_baseline = df_sales[
                     pd.to_datetime(df_sales["ds"]).dt.year == baseline_year
                 ]
                 baseline_month_totals = df_sales_baseline.groupby("month")["y"].sum().reset_index()
-                baseline_month_totals.columns = ["month", "baseline_2025_month_total"]
+                baseline_month_totals.columns = ["month", "baseline_year_month_total"]
 
                 df_monthly_scales = df_monthly_scales.merge(
                     baseline_month_totals, on="month", how="left"
                 )
-                df_monthly_scales["target_2026_month_total"] = df_monthly_scales[
-                    "baseline_2025_month_total"
+                df_monthly_scales["target_year_month_total"] = df_monthly_scales[
+                    "baseline_year_month_total"
                 ] * (1 + TARGET_YOY_GROWTH)
+                
+                # Add year metadata columns
+                df_monthly_scales["baseline_year"] = baseline_year
+                df_monthly_scales["forecast_year"] = forecast_year
 
                 # Add spike totals
                 spike_totals = (
@@ -496,6 +528,20 @@ def generate_forecast(
                     df_monthly_scales["forecast_nonspike_total_after"]
                     + df_monthly_scales["forecast_spike_total"]
                 )
+                
+                # V5.4.5: Reorder columns to standard schema
+                df_monthly_scales = df_monthly_scales[[
+                    "month",
+                    "baseline_year",
+                    "forecast_year",
+                    "baseline_year_month_total",
+                    "target_year_month_total",
+                    "forecast_nonspike_total_before",
+                    "forecast_nonspike_total_after",
+                    "forecast_spike_total",
+                    "achieved_month_total_after",
+                    "month_scale",
+                ]]
 
                 # Save monthly scales summary (slugged + stable pointer)
                 monthly_scales_path_slug = reports_dir / f"monthly_calibration_scales_{slug}.csv"
