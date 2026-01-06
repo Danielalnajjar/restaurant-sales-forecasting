@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class GBMLongHorizon:
     """Quantile GBM model for long horizons (15-380 days)."""
 
-    def __init__(self, quantiles=[0.5, 0.8, 0.9]):
-        self.quantiles = quantiles
+    def __init__(self, quantiles: list | None = None):
+        self.quantiles = quantiles or [0.5, 0.8, 0.9]
         self.models = {}  # One model per quantile
         self.feature_cols = None
 

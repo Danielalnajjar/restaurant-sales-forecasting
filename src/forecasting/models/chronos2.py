@@ -22,12 +22,12 @@ except ImportError:
 class Chronos2Model:
     """Chronos-2 univariate forecasting model."""
 
-    def __init__(self, prediction_length: int = 90, quantiles: list = [0.5, 0.8, 0.9]):
+    def __init__(self, prediction_length: int = 90, quantiles: list | None = None):
         self.model = None
         self.train_data = None  # Store training data for predictions
         self.available = CHRONOS_AVAILABLE
         self.prediction_length = prediction_length
-        self.quantiles = quantiles
+        self.quantiles = quantiles or [0.5, 0.8, 0.9]
 
     def fit(self, df_sales: pd.DataFrame):
         """
