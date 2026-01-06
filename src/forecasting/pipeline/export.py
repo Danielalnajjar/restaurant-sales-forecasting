@@ -515,12 +515,8 @@ def generate_forecast(
             else:
                 logger.warning("No historical sales found, skipping growth calibration")
 
-        except Exception as e:
-            logger.error(f"Growth calibration failed: {e}")
-            logger.warning("Continuing without growth calibration")
-            import traceback
-
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Growth calibration failed; continuing without growth calibration")
 
     # Apply overrides
     df_forecast = apply_overrides(df_forecast)

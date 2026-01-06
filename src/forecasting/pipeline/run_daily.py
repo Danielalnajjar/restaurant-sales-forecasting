@@ -325,11 +325,8 @@ def run_pipeline(
             except Exception as e:
                 logger.warning(f"Could not compute metrics_ensemble.csv: {e}")
 
-    except Exception as e:
-        logger.error(f"\n✗ PIPELINE FAILED: {e}")
-        import traceback
-
-        traceback.print_exc()
+    except Exception:
+        logger.exception("\n✗ PIPELINE FAILED")
         sys.exit(1)
 
 

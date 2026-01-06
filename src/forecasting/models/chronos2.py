@@ -90,11 +90,8 @@ class Chronos2Model:
             self.train_data = ts_df
 
             logger.info("Chronos-2 training complete")
-        except Exception as e:
-            logger.error(f"Chronos-2 training failed: {e}")
-            import traceback
-
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Chronos-2 fit failed")
             self.model = None
 
     def predict(self, prediction_length: int = None) -> pd.DataFrame:
@@ -147,11 +144,8 @@ class Chronos2Model:
 
             return preds_df
 
-        except Exception as e:
-            logger.error(f"Chronos-2 prediction failed: {e}")
-            import traceback
-
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Chronos-2 predict failed")
             return pd.DataFrame(columns=["target_date", "p50", "p80", "p90"])
 
 
