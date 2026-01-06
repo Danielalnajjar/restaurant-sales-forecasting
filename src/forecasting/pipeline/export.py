@@ -19,15 +19,15 @@ logger = logging.getLogger(__name__)
 def _select_baseline_year(df_hist: pd.DataFrame) -> int:
     """
     Select baseline year using the same logic as growth calibration.
-    
+
     If max_date in history is Dec 31 → baseline_year = max_year
     Else baseline_year = max_year - 1
-    
+
     Parameters
     ----------
     df_hist : pd.DataFrame
         Historical sales dataframe with 'ds' column
-        
+
     Returns
     -------
     int
@@ -477,7 +477,7 @@ def generate_forecast(
                 # V5.4.5: Compute forecast_year and baseline_year (year-agnostic)
                 forecast_year = forecast_year_from_config(config)
                 baseline_year = _select_baseline_year(df_sales)
-                
+
                 df_monthly_scales = (
                     df_growth_log[~df_growth_log["is_excluded"]]
                     .groupby("month")
@@ -505,7 +505,7 @@ def generate_forecast(
                 df_monthly_scales["target_year_month_total"] = df_monthly_scales[
                     "baseline_year_month_total"
                 ] * (1 + TARGET_YOY_GROWTH)
-                
+
                 # Add year metadata columns
                 df_monthly_scales["baseline_year"] = baseline_year
                 df_monthly_scales["forecast_year"] = forecast_year
@@ -528,20 +528,22 @@ def generate_forecast(
                     df_monthly_scales["forecast_nonspike_total_after"]
                     + df_monthly_scales["forecast_spike_total"]
                 )
-                
+
                 # V5.4.5: Reorder columns to standard schema
-                df_monthly_scales = df_monthly_scales[[
-                    "month",
-                    "baseline_year",
-                    "forecast_year",
-                    "baseline_year_month_total",
-                    "target_year_month_total",
-                    "forecast_nonspike_total_before",
-                    "forecast_nonspike_total_after",
-                    "forecast_spike_total",
-                    "achieved_month_total_after",
-                    "month_scale",
-                ]]
+                df_monthly_scales = df_monthly_scales[
+                    [
+                        "month",
+                        "baseline_year",
+                        "forecast_year",
+                        "baseline_year_month_total",
+                        "target_year_month_total",
+                        "forecast_nonspike_total_before",
+                        "forecast_nonspike_total_after",
+                        "forecast_spike_total",
+                        "achieved_month_total_after",
+                        "month_scale",
+                    ]
+                ]
 
                 # Save monthly scales summary (slugged + stable pointer)
                 monthly_scales_path_slug = reports_dir / f"monthly_calibration_scales_{slug}.csv"
