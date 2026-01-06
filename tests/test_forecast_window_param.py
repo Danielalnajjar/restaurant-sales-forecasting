@@ -6,13 +6,7 @@ Tests:
 - forecast_slug() returns correct slug format
 """
 
-import sys
-from pathlib import Path
-
 import pytest
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from forecasting.utils.runtime import forecast_slug, get_forecast_window
 
@@ -69,6 +63,3 @@ def test_forecast_window_validation():
     with pytest.raises(ValueError, match="must be >= forecast_start"):
         get_forecast_window(config)
 
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
