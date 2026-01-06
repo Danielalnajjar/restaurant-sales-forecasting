@@ -8,9 +8,6 @@ Tests:
 """
 
 import os
-from pathlib import Path
-
-import pytest
 
 from forecasting.utils.runtime import find_project_root, resolve_config_path
 
@@ -71,4 +68,3 @@ def test_find_project_root():
 
     assert has_src or has_code, "Project root missing src/forecasting or code/"
     assert has_configs, "Project root missing configs/"
-

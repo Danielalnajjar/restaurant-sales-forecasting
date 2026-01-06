@@ -62,4 +62,3 @@ def test_forecast_window_validation():
     config = {"forecast_start": "2026-12-31", "forecast_end": "2026-01-01"}
     with pytest.raises(ValueError, match="must be >= forecast_start"):
         get_forecast_window(config)
-
