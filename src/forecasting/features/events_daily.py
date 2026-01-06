@@ -311,7 +311,7 @@ def build_events_daily_forecast(
 
     # Top-K event families (use same families as history for consistency)
     # Load history to get top families
-    history_path = Path(config["paths"]["processed_events_daily_history_path"])
+    history_path = Path(config["paths"]["processed_events_history"])
     df_history = pd.read_parquet(history_path)
     family_cols = [col for col in df_history.columns if col.startswith("event_family__")]
     top_families = [col.replace("event_family__", "") for col in family_cols]
