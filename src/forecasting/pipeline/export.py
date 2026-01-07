@@ -216,6 +216,14 @@ def generate_forecast(
     if output_scheduling_path is None:
         output_scheduling_path = str(forecasts_dir / f"rollups_scheduling_{slug}.csv")
 
+    # Get training data paths from config (or use defaults)
+    train_short_path = config["paths"].get(
+        "processed_train_short", "data/processed/train_short.parquet"
+    )
+    train_long_path = config["paths"].get(
+        "processed_train_long", "data/processed/train_long.parquet"
+    )
+
     # Load data
     df_sales = pd.read_parquet(sales_fact_path)
     df_hours_2026 = pd.read_parquet(hours_2026_path)
@@ -259,7 +267,7 @@ def generate_forecast(
         model_short = GBMShortHorizon()
 
         # Train on full history
-        df_train_short = pd.read_parquet("data/processed/train_short.parquet")
+        df_train_short = pd.read_parquet(train_short_path)
         model_short.fit(df_train_short)
 
         preds_short = model_short.predict(df_inf_short)
@@ -274,7 +282,7 @@ def generate_forecast(
         model_long = GBMLongHorizon()
 
         # Train on full history
-        df_train_long = pd.read_parquet("data/processed/train_long.parquet")
+        df_train_long = pd.read_parquet(train_long_path)
         model_long.fit(df_train_long)
 
         preds_long = model_long.predict(df_inf_long)
