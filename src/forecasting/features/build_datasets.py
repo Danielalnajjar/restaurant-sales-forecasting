@@ -192,7 +192,7 @@ def build_train_datasets(
     return df_train_short, df_train_long
 
 
-def build_inference_features_2026(
+def build_inference_features(
     config: dict,
     sales_fact_path: str = "data/processed/fact_sales_daily.parquet",
     hours_2026_path: str | None = None,
@@ -201,7 +201,7 @@ def build_inference_features_2026(
     output_long_path: str | None = None,
 ) -> tuple:
     """
-    Build inference features for forecast period.
+    Build inference features for forecast period (year-agnostic).
 
     Returns
     -------
@@ -267,11 +267,11 @@ def build_inference_features_2026(
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     df_inf_short.to_parquet(output_short_path, index=False)
     logger.info(
-        f"Saved short-horizon 2026 features to {output_short_path} ({len(df_inf_short)} rows)"
+        f"Saved short-horizon features to {output_short_path} ({len(df_inf_short)} rows)"
     )
 
     # Build long-horizon features (H=15-380)
-    logger.info("Building long-horizon 2026 features...")
+    logger.info("Building long-horizon features...")
     target_dates_long = [
         d
         for d in dates_forecast
@@ -289,6 +289,26 @@ def build_inference_features_2026(
     output_path_obj = Path(output_long_path)
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     df_inf_long.to_parquet(output_long_path, index=False)
-    logger.info(f"Saved long-horizon 2026 features to {output_long_path} ({len(df_inf_long)} rows)")
+    logger.info(f"Saved long-horizon features to {output_long_path} ({len(df_inf_long)} rows)")
 
     return df_inf_short, df_inf_long
+
+
+# Backward-compatible alias (do not remove; used by older notebooks/scripts)
+def build_inference_features_2026(
+    config: dict,
+    sales_fact_path: str = "data/processed/fact_sales_daily.parquet",
+    hours_2026_path: str | None = None,
+    events_2026_path: str | None = None,
+    output_short_path: str | None = None,
+    output_long_path: str | None = None,
+) -> tuple:
+    """Backward-compatible wrapper for build_inference_features()."""
+    return build_inference_features(
+        config=config,
+        sales_fact_path=sales_fact_path,
+        hours_2026_path=hours_2026_path,
+        events_2026_path=events_2026_path,
+        output_short_path=output_short_path,
+        output_long_path=output_long_path,
+    )

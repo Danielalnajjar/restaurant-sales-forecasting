@@ -33,17 +33,20 @@ def to_snake_case(text: str) -> str:
     return text.lower()
 
 
-def ingest_events_2026_exact(
-    input_path: str = "data/events/events_2026_exact_dates_clean_v2.csv",
-    output_path: str = "data/processed/events_2026_exact.parquet",
+def ingest_events_exact(
+    input_path: str,
+    output_path: str,
 ) -> pd.DataFrame:
     """
-    Ingest and normalize 2026 exact events.
+    Generic ingest for exact events CSV (year-agnostic).
+
+    Reads exact events (one-off events) from CSV.
+    Ensures dates are parsed as datetimes.
 
     Returns DataFrame with columns:
     - event_name, event_name_ascii, category, proximity, start_date, end_date
     """
-    logger.info(f"Reading 2026 exact events from {input_path}")
+    logger.info(f"Reading exact events from {input_path}")
 
     # Read CSV with encoding handling
     try:
@@ -103,9 +106,20 @@ def ingest_events_2026_exact(
     output_path_obj = Path(output_path)
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     df_clean.to_parquet(output_path, index=False)
-    logger.info(f"Saved 2026 exact events to {output_path} ({len(df_clean)} rows)")
+    logger.info(f"Saved exact events to {output_path} ({len(df_clean)} rows)")
 
     return df_clean
+
+
+def ingest_events_2026_exact(
+    input_path: str = "data/events/events_2026_exact_dates_clean_v2.csv",
+    output_path: str = "data/processed/events_2026_exact.parquet",
+) -> pd.DataFrame:
+    """Backward-compatible wrapper for ingest_events_exact()."""
+    return ingest_events_exact(
+        input_path=input_path,
+        output_path=output_path,
+    )
 
 
 def ingest_recurring_event_mapping(

@@ -8,13 +8,13 @@ from pathlib import Path
 from forecasting.backtest.rolling_origin import run_baseline_backtest
 
 # Per V5.4.3 PHASE 5: Use generic names internally
-from forecasting.features.build_datasets import build_inference_features_2026, build_train_datasets
+from forecasting.features.build_datasets import build_inference_features, build_train_datasets
 from forecasting.features.event_uplift import compute_event_uplift_priors, generate_uplift_report
 from forecasting.features.events_daily import (
     build_events_daily_forecast,
     build_events_daily_history,
 )
-from forecasting.io.events_ingest import ingest_events_2026_exact, ingest_recurring_event_mapping
+from forecasting.io.events_ingest import ingest_events_exact, ingest_recurring_event_mapping
 from forecasting.io.hours_calendar import (
     build_hours_calendar_forecast,
     build_hours_calendar_history,
@@ -133,7 +133,7 @@ def run_pipeline(
 
         # Step 3: Ingest events
         logger.info("\n[3/9] Ingesting and normalizing events...")
-        ingest_events_2026_exact(input_path=str(events_exact_path))
+        ingest_events_exact(input_path=str(events_exact_path))
         ingest_recurring_event_mapping(input_path=str(recurring_mapping_path))
 
         # Step 4: Build event features
@@ -154,7 +154,7 @@ def run_pipeline(
         # Step 6: Build datasets
         logger.info("\n[6/9] Building supervised datasets and inference features...")
         build_train_datasets(config=config)
-        build_inference_features_2026(config)
+        build_inference_features(config)
 
         if dry_run:
             logger.info("\n✓ DRY RUN COMPLETE - Data preparation successful")
