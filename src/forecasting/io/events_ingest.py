@@ -147,14 +147,21 @@ def ingest_recurring_event_mapping(
 
     # Normalize column names
     df.columns = [to_snake_case(col) for col in df.columns]
-
-    # Required base columns (no year columns required)
-    required = {"event_family", "category", "proximity", "recurrence_pattern"}
+    # Required base columns (only event_family is truly required)
+    required = {"event_family"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(
             f"Recurring mapping missing required columns: {sorted(missing)}"
         )
+
+    # Add optional columns if missing
+    if "category" not in df.columns:
+        df["category"] = ""
+    if "proximity" not in df.columns:
+        df["proximity"] = ""
+    if "recurrence_pattern" not in df.columns:
+        df["recurrence_pattern"] = ""
 
     # Detect year columns via regex: start_YYYY, end_YYYY
     _YEAR_COL_RE = re.compile(r"^(start|end)_(\d{4})$")

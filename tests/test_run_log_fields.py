@@ -121,5 +121,3 @@ def test_run_log_outputs_exist():
             # Check existence (some outputs may be optional)
             if key == "forecast_daily":
                 assert path.exists(), f"Required output missing: {path}"
-
-

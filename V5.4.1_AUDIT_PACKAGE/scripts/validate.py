@@ -18,10 +18,10 @@ from pathlib import Path
 
 def run_command(cmd, description):
     """Run a command and report success/failure."""
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"Running: {description}")
     print(f"Command: {' '.join(cmd)}")
-    print('='*80)
+    print("=" * 80)
 
     result = subprocess.run(cmd, capture_output=False)
 
@@ -51,28 +51,27 @@ def main():
 
     # 1. Run pytest
     passed = run_command(
-        [sys.executable, "-m", "pytest", str(root / "tests"), "-v"],
-        "pytest (unit tests)"
+        [sys.executable, "-m", "pytest", str(root / "tests"), "-v"], "pytest (unit tests)"
     )
     all_passed &= passed
 
     # 2. Run ruff check
     try:
         passed = run_command(
-            [sys.executable, "-m", "ruff", "check", str(root / "src")],
-            "ruff check (linting)"
+            [sys.executable, "-m", "ruff", "check", str(root / "src")], "ruff check (linting)"
         )
         all_passed &= passed
     except FileNotFoundError:
         print("⚠️  WARNING: ruff not installed, skipping linting check")
 
     # 3. Validate config loads
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("Running: Config validation")
-    print('='*80)
+    print("=" * 80)
 
     try:
         from forecasting.utils.runtime import load_config
+
         config = load_config()
         print("✓ Config loaded successfully")
         print(f"  Forecast: {config.get('forecast_start')} to {config.get('forecast_end')}")
@@ -81,9 +80,9 @@ def main():
         all_passed = False
 
     # 4. Validate required outputs exist
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("Validating required outputs from most recent run")
-    print('='*80)
+    print("=" * 80)
 
     outputs_dir = root / "outputs"
     forecasts_dir = outputs_dir / "forecasts"
@@ -105,11 +104,24 @@ def main():
             print(f"Validating outputs for slug: {slug}")
 
             # Required outputs
-            all_passed &= check_file_exists(latest_forecast, f"Daily forecast (forecast_daily_{slug}.csv)")
-            all_passed &= check_file_exists(reports_dir / f"run_log_{slug}.json", f"Run log (run_log_{slug}.json)")
-            all_passed &= check_file_exists(forecasts_dir / f"rollups_ordering_{slug}.csv", f"Ordering rollup (rollups_ordering_{slug}.csv)")
-            all_passed &= check_file_exists(forecasts_dir / f"rollups_scheduling_{slug}.csv", f"Scheduling rollup (rollups_scheduling_{slug}.csv)")
-            all_passed &= check_file_exists(models_dir / f"ensemble_weights_{slug}.csv", f"Ensemble weights (ensemble_weights_{slug}.csv)")
+            all_passed &= check_file_exists(
+                latest_forecast, f"Daily forecast (forecast_daily_{slug}.csv)"
+            )
+            all_passed &= check_file_exists(
+                reports_dir / f"run_log_{slug}.json", f"Run log (run_log_{slug}.json)"
+            )
+            all_passed &= check_file_exists(
+                forecasts_dir / f"rollups_ordering_{slug}.csv",
+                f"Ordering rollup (rollups_ordering_{slug}.csv)",
+            )
+            all_passed &= check_file_exists(
+                forecasts_dir / f"rollups_scheduling_{slug}.csv",
+                f"Scheduling rollup (rollups_scheduling_{slug}.csv)",
+            )
+            all_passed &= check_file_exists(
+                models_dir / f"ensemble_weights_{slug}.csv",
+                f"Ensemble weights (ensemble_weights_{slug}.csv)",
+            )
 
             # Optional but recommended outputs (don't fail if missing, just warn)
             spike_log = reports_dir / f"spike_uplift_log_{slug}.csv"
@@ -120,9 +132,13 @@ def main():
 
             growth_log = reports_dir / f"growth_calibration_log_{slug}.csv"
             if growth_log.exists():
-                check_file_exists(growth_log, f"Growth calibration log (growth_calibration_log_{slug}.csv)")
+                check_file_exists(
+                    growth_log, f"Growth calibration log (growth_calibration_log_{slug}.csv)"
+                )
             else:
-                print(f"⚠️  Optional: Growth calibration log not found (growth_calibration_log_{slug}.csv)")
+                print(
+                    f"⚠️  Optional: Growth calibration log not found (growth_calibration_log_{slug}.csv)"
+                )
         else:
             print("❌ No forecast files found (run pipeline first)")
             all_passed = False
@@ -131,14 +147,14 @@ def main():
         all_passed = False
 
     # Final result
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     if all_passed:
         print("✓ ALL VALIDATION CHECKS PASSED")
-        print('='*80)
+        print("=" * 80)
         return 0
     else:
         print("❌ SOME VALIDATION CHECKS FAILED")
-        print('='*80)
+        print("=" * 80)
         return 1
 
 

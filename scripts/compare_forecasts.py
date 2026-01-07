@@ -25,7 +25,7 @@ def compare_forecasts(old_path, new_path):
         return False
 
     # Merge on ds
-    df_merged = df_old.merge(df_new, on='ds', suffixes=('_old', '_new'))
+    df_merged = df_old.merge(df_new, on="ds", suffixes=("_old", "_new"))
 
     if len(df_merged) != len(df_old):
         print("❌ FAIL: Date mismatch between files")
@@ -34,9 +34,9 @@ def compare_forecasts(old_path, new_path):
     print(f"✓ Same dates: {len(df_merged)} days")
 
     # Compare p50, p80, p90
-    max_diff_p50 = (df_merged['p50_old'] - df_merged['p50_new']).abs().max()
-    max_diff_p80 = (df_merged['p80_old'] - df_merged['p80_new']).abs().max()
-    max_diff_p90 = (df_merged['p90_old'] - df_merged['p90_new']).abs().max()
+    max_diff_p50 = (df_merged["p50_old"] - df_merged["p50_new"]).abs().max()
+    max_diff_p80 = (df_merged["p80_old"] - df_merged["p80_new"]).abs().max()
+    max_diff_p90 = (df_merged["p90_old"] - df_merged["p90_new"]).abs().max()
 
     print("\nMax absolute differences:")
     print(f"  p50: ${max_diff_p50:.4f}")
@@ -48,11 +48,13 @@ def compare_forecasts(old_path, new_path):
     if max_diff_p50 > threshold:
         print(f"❌ FAIL: p50 diff ${max_diff_p50:.4f} > ${threshold}")
         # Show worst cases
-        worst = df_merged.nlargest(5, (df_merged['p50_old'] - df_merged['p50_new']).abs())
+        worst = df_merged.nlargest(5, (df_merged["p50_old"] - df_merged["p50_new"]).abs())
         print("\nWorst p50 differences:")
         for _, row in worst.iterrows():
-            diff = row['p50_old'] - row['p50_new']
-            print(f"  {row['ds']}: ${diff:+.2f} (old=${row['p50_old']:.2f}, new=${row['p50_new']:.2f})")
+            diff = row["p50_old"] - row["p50_new"]
+            print(
+                f"  {row['ds']}: ${diff:+.2f} (old=${row['p50_old']:.2f}, new=${row['p50_new']:.2f})"
+            )
         return False
 
     if max_diff_p80 > threshold:
@@ -64,8 +66,8 @@ def compare_forecasts(old_path, new_path):
         return False
 
     # Check closed days
-    closed_old = (df_merged['p50_old'] == 0).sum()
-    closed_new = (df_merged['p50_new'] == 0).sum()
+    closed_old = (df_merged["p50_old"] == 0).sum()
+    closed_new = (df_merged["p50_new"] == 0).sum()
 
     print(f"\nClosed days: old={closed_old}, new={closed_new}")
 
@@ -74,8 +76,8 @@ def compare_forecasts(old_path, new_path):
         return False
 
     # Check totals
-    total_old = df_merged['p50_old'].sum()
-    total_new = df_merged['p50_new'].sum()
+    total_old = df_merged["p50_old"].sum()
+    total_new = df_merged["p50_new"].sum()
     total_diff = abs(total_old - total_new)
 
     print("\nAnnual totals (p50):")
@@ -87,12 +89,12 @@ def compare_forecasts(old_path, new_path):
         print(f"❌ FAIL: Total diff ${total_diff:.2f} > $1.00")
         return False
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("✓ PASS: Numeric parity validated")
     print("  - All days match within $0.01")
     print("  - Same closed days")
     print("  - Total within $1.00")
-    print("="*80)
+    print("=" * 80)
 
     return True
 

@@ -21,8 +21,7 @@ from forecasting.utils.runtime import get_forecast_window, load_config
 
 # Setup logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -42,13 +41,13 @@ def test_config_loading():
         logger.info(f"✓ Forecast window: {fs} to {fe}")
 
         # Check growth calibration config
-        growth_config = config.get('growth_calibration', {})
+        growth_config = config.get("growth_calibration", {})
         logger.info(f"✓ Growth calibration enabled: {growth_config.get('enabled')}")
         logger.info(f"✓ Target YoY rate: {growth_config.get('target_yoy_rate')}")
         logger.info(f"✓ Mode: {growth_config.get('mode')}")
 
         # Check spike uplift config
-        spike_config = config.get('spike_uplift', {})
+        spike_config = config.get("spike_uplift", {})
         logger.info(f"✓ Spike uplift enabled: {spike_config.get('enabled')}")
         logger.info(f"✓ Min observations: {spike_config.get('min_observations')}")
         logger.info(f"✓ Shrinkage factor: {spike_config.get('shrinkage_factor')}")
@@ -75,16 +74,18 @@ def test_forecast_generation(config):
 
         # Check that forecast covers expected period
         fs, fe = get_forecast_window(config)
-        forecast_start = df_forecast['ds'].min().strftime('%Y-%m-%d')
-        forecast_end = df_forecast['ds'].max().strftime('%Y-%m-%d')
+        forecast_start = df_forecast["ds"].min().strftime("%Y-%m-%d")
+        forecast_end = df_forecast["ds"].max().strftime("%Y-%m-%d")
 
         if forecast_start == fs and forecast_end == fe:
             logger.info(f"✓ Forecast period matches config: {forecast_start} to {forecast_end}")
         else:
-            logger.warning(f"⚠ Forecast period mismatch: expected {fs} to {fe}, got {forecast_start} to {forecast_end}")
+            logger.warning(
+                f"⚠ Forecast period mismatch: expected {fs} to {fe}, got {forecast_start} to {forecast_end}"
+            )
 
         # Check for required columns
-        required_cols = ['ds', 'p50', 'p80', 'p90', 'is_closed']
+        required_cols = ["ds", "p50", "p80", "p90", "is_closed"]
         missing_cols = [c for c in required_cols if c not in df_forecast.columns]
         if missing_cols:
             logger.error(f"✗ Missing required columns: {missing_cols}")
@@ -93,17 +94,19 @@ def test_forecast_generation(config):
             logger.info("✓ All required columns present")
 
         # Check guardrails
-        closed_days = df_forecast[df_forecast['is_closed'] == 1]
+        closed_days = df_forecast[df_forecast["is_closed"] == 1]
         if len(closed_days) > 0:
-            closed_with_sales = closed_days[closed_days['p50'] > 0]
+            closed_with_sales = closed_days[closed_days["p50"] > 0]
             if len(closed_with_sales) > 0:
                 logger.error(f"✗ {len(closed_with_sales)} closed days have non-zero sales")
                 raise ValueError("Guardrail violation: closed days with sales")
             else:
-                logger.info(f"✓ Guardrail check passed: {len(closed_days)} closed days have $0 sales")
+                logger.info(
+                    f"✓ Guardrail check passed: {len(closed_days)} closed days have $0 sales"
+                )
 
         # Check for negative forecasts
-        negative_days = df_forecast[df_forecast['p50'] < 0]
+        negative_days = df_forecast[df_forecast["p50"] < 0]
         if len(negative_days) > 0:
             logger.error(f"✗ {len(negative_days)} days have negative forecasts")
             raise ValueError("Guardrail violation: negative forecasts")
@@ -112,8 +115,7 @@ def test_forecast_generation(config):
 
         # Check quantile monotonicity
         violations = df_forecast[
-            (df_forecast['p50'] > df_forecast['p80']) |
-            (df_forecast['p80'] > df_forecast['p90'])
+            (df_forecast["p50"] > df_forecast["p80"]) | (df_forecast["p80"] > df_forecast["p90"])
         ]
         if len(violations) > 0:
             logger.error(f"✗ {len(violations)} days have non-monotonic quantiles")
@@ -146,15 +148,15 @@ def test_growth_calibration(df_forecast, config):
         history_year = forecast_year - 1
 
         # Filter history to comparison year
-        df_history['year'] = df_history['ds'].dt.year
-        df_history_comp = df_history[df_history['year'] == history_year]
+        df_history["year"] = df_history["ds"].dt.year
+        df_history_comp = df_history[df_history["year"] == history_year]
 
         # Calculate YoY growth
-        history_total = df_history_comp['y'].sum()
-        forecast_total = df_forecast['p50'].sum()
+        history_total = df_history_comp["y"].sum()
+        forecast_total = df_forecast["p50"].sum()
         yoy_growth = (forecast_total / history_total - 1) * 100
 
-        target_growth = config.get('growth_calibration', {}).get('target_yoy_rate', 0.10) * 100
+        target_growth = config.get("growth_calibration", {}).get("target_yoy_rate", 0.10) * 100
 
         logger.info(f"✓ {history_year} actual: ${history_total:,.2f}")
         logger.info(f"✓ {forecast_year} forecast: ${forecast_total:,.2f}")
@@ -165,7 +167,9 @@ def test_growth_calibration(df_forecast, config):
         if abs(yoy_growth - target_growth) < 1.0:
             logger.info("✓ Growth calibration successful (within 1% of target)")
         else:
-            logger.warning(f"⚠ Growth calibration off target by {abs(yoy_growth - target_growth):.1f}%")
+            logger.warning(
+                f"⚠ Growth calibration off target by {abs(yoy_growth - target_growth):.1f}%"
+            )
 
     except Exception as e:
         logger.error(f"✗ Growth calibration test failed: {e}")

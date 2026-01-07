@@ -92,5 +92,3 @@ def test_spike_log_has_flags_hit():
     has_flags = df["flags_hit"].notna() & (df["flags_hit"] != "")
 
     assert has_flags.sum() > 0, "No spike flags found in log"
-
-

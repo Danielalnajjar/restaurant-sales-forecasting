@@ -44,7 +44,7 @@ def test_no_hardcoded_2026_windows():
             matches = re.finditer(pattern, content, re.IGNORECASE)
             for match in matches:
                 # Get line number
-                line_num = content[:match.start()].count('\n') + 1
+                line_num = content[: match.start()].count("\n") + 1
                 violations.append(f"{py_file}:{line_num}: {match.group()}")
 
     if violations:
@@ -78,7 +78,7 @@ def test_no_hardcoded_output_paths():
         for pattern in forbidden_patterns:
             matches = re.finditer(pattern, content, re.IGNORECASE)
             for match in matches:
-                line_num = content[:match.start()].count('\n') + 1
+                line_num = content[: match.start()].count("\n") + 1
                 violations.append(f"{py_file}:{line_num}: {match.group()}")
 
     if violations:

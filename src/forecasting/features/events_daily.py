@@ -214,6 +214,7 @@ def build_events_daily_forecast(
     from forecasting.utils.runtime import find_project_root, forecast_slug, get_forecast_window
 
     forecast_start, forecast_end = get_forecast_window(config)
+    forecast_year = pd.Timestamp(forecast_start).year
     slug = forecast_slug(forecast_start, forecast_end)
     logger.info(f"Building event features for {forecast_start} to {forecast_end} (slug: {slug})")
 

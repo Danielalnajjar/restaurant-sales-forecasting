@@ -13,10 +13,11 @@ def test_run_pipeline_default_chronos_enabled():
     sig = inspect.signature(run_pipeline)
 
     # Check skip_chronos parameter default
-    assert 'skip_chronos' in sig.parameters, "skip_chronos parameter missing"
+    assert "skip_chronos" in sig.parameters, "skip_chronos parameter missing"
 
-    skip_chronos_param = sig.parameters['skip_chronos']
+    skip_chronos_param = sig.parameters["skip_chronos"]
 
     # Default should be False (Chronos enabled)
-    assert skip_chronos_param.default is False, \
+    assert skip_chronos_param.default is False, (
         f"Expected skip_chronos default=False, got {skip_chronos_param.default}"
+    )

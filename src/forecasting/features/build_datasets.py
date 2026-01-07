@@ -266,9 +266,7 @@ def build_inference_features(
     output_path_obj = Path(output_short_path)
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     df_inf_short.to_parquet(output_short_path, index=False)
-    logger.info(
-        f"Saved short-horizon features to {output_short_path} ({len(df_inf_short)} rows)"
-    )
+    logger.info(f"Saved short-horizon features to {output_short_path} ({len(df_inf_short)} rows)")
 
     # Build long-horizon features (H=15-380)
     logger.info("Building long-horizon features...")

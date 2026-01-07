@@ -85,5 +85,3 @@ def test_no_hardcoded_output_paths():
         msg = "Found hardcoded _2026 in output path defaults:\n" + "\n".join(violations)
         # This is a warning, not a failure, since we allow backwards compat
         print(f"WARNING: {msg}")
-
-

@@ -33,31 +33,31 @@ def test_run_log_schema():
 
     # Required fields per Step 5
     required_fields = [
-        'timestamp_utc',
-        'git_commit',
-        'config_path',
-        'config_hash',
-        'data_through',
-        'forecast_start',
-        'forecast_end',
-        'forecast_days',
-        'annual_total_p50',
-        'annual_total_p80',
-        'annual_total_p90',
-        'spike_days_adjusted',
-        'calibration_mode',
-        'outputs',
+        "timestamp_utc",
+        "git_commit",
+        "config_path",
+        "config_hash",
+        "data_through",
+        "forecast_start",
+        "forecast_end",
+        "forecast_days",
+        "annual_total_p50",
+        "annual_total_p80",
+        "annual_total_p90",
+        "spike_days_adjusted",
+        "calibration_mode",
+        "outputs",
     ]
 
     missing = [f for f in required_fields if f not in run_log]
     assert not missing, f"Missing required fields in run_log: {missing}"
 
     # Check types
-    assert isinstance(run_log['forecast_days'], int)
-    assert isinstance(run_log['annual_total_p50'], (int, float))
-    assert isinstance(run_log['spike_days_adjusted'], int)
-    assert isinstance(run_log['calibration_mode'], str)
-    assert isinstance(run_log['outputs'], dict)
+    assert isinstance(run_log["forecast_days"], int)
+    assert isinstance(run_log["annual_total_p50"], (int, float))
+    assert isinstance(run_log["spike_days_adjusted"], int)
+    assert isinstance(run_log["calibration_mode"], str)
+    assert isinstance(run_log["outputs"], dict)
 
 
 def test_calibration_mode_not_unknown():
@@ -77,16 +77,18 @@ def test_calibration_mode_not_unknown():
     with open(run_log_path) as f:
         run_log = json.load(f)
 
-    calibration_mode = run_log.get('calibration_mode', 'unknown')
+    calibration_mode = run_log.get("calibration_mode", "unknown")
 
     # Check if growth calibration log exists
     growth_log_path = reports_dir / "growth_calibration_log.csv"
     if growth_log_path.exists():
         # If calibration log exists, mode should not be "unknown"
-        assert calibration_mode != "unknown", \
+        assert calibration_mode != "unknown", (
             "calibration_mode is 'unknown' but growth_calibration_log.csv exists"
-        assert calibration_mode in ["monthly", "annual", "none"], \
+        )
+        assert calibration_mode in ["monthly", "annual", "none"], (
             f"Invalid calibration_mode: {calibration_mode}"
+        )
 
 
 def test_run_log_outputs_exist():
@@ -106,7 +108,7 @@ def test_run_log_outputs_exist():
     with open(run_log_path) as f:
         run_log = json.load(f)
 
-    outputs = run_log.get('outputs', {})
+    outputs = run_log.get("outputs", {})
 
     for key, path in outputs.items():
         if path and path != "unknown":
