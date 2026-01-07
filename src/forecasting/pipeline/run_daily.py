@@ -228,7 +228,7 @@ def run_pipeline(
         logger.info(f"Total p50: ${df_forecast['p50'].sum():,.2f}")
         logger.info(f"Closed days: {df_forecast['is_closed'].sum()}")
         logger.info("\nOutputs:")
-        logger.info("  - outputs/forecasts/forecast_daily_2026.csv")
+        logger.info("  - outputs/forecasts/forecast_daily_{slug}.csv")
         logger.info("  - outputs/forecasts/rollups_ordering.csv")
         logger.info("  - outputs/forecasts/rollups_scheduling.csv")
 

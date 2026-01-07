@@ -94,5 +94,3 @@ def test_spike_log_has_flags_hit():
     assert has_flags.sum() > 0, "No spike flags found in log"
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

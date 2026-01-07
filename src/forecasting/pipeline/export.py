@@ -303,7 +303,7 @@ def generate_forecast(
                 # Only use Chronos for forecast year dates
                 preds_chronos = preds_chronos[preds_chronos["target_date"].dt.year == forecast_year]
                 model_predictions["chronos2"] = preds_chronos
-                logger.info(f"Chronos-2 generated {len(preds_chronos)} predictions for 2026")
+                logger.info(f"Chronos-2 generated {len(preds_chronos)} predictions")
             else:
                 logger.warning("Chronos-2 generated no predictions")
         else:
@@ -600,7 +600,7 @@ def generate_forecast(
         legacy_daily = forecasts_dir / "forecast_daily_2026.csv"
         if str(legacy_daily) != output_daily_path:
             df_forecast.to_csv(legacy_daily, index=False)
-            logger.info(f"Saved legacy 2026 forecast to {legacy_daily}")
+            logger.info(f"Saved legacy forecast to {legacy_daily}")
 
     # Save run metadata log
     import json

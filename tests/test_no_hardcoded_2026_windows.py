@@ -87,5 +87,3 @@ def test_no_hardcoded_output_paths():
         print(f"WARNING: {msg}")
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

@@ -63,7 +63,7 @@ def build_hours_calendar_forecast(
 
     Returns DataFrame with columns: ds, open_time_local, close_time_local, open_minutes, is_closed
     """
-    logger.info(f"Building 2026 hours calendar from {calendar_path}")
+    logger.info(f"Building hours calendar forecast from {calendar_path}")
 
     # Read base calendar
     df_cal = pd.read_csv(calendar_path)
@@ -102,7 +102,7 @@ def build_hours_calendar_forecast(
     output_path_obj = Path(output_path)
     output_path_obj.parent.mkdir(parents=True, exist_ok=True)
     df_result.to_parquet(output_path, index=False)
-    logger.info(f"Saved 2026 hours calendar to {output_path} ({len(df_result)} rows)")
+    logger.info(f"Saved hours calendar forecast to {output_path} ({len(df_result)} rows)")
 
     return df_result
 

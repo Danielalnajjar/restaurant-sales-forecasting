@@ -123,5 +123,3 @@ def test_run_log_outputs_exist():
                 assert path.exists(), f"Required output missing: {path}"
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

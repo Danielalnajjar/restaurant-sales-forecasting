@@ -237,7 +237,7 @@ def build_events_daily_forecast(
     df_recurring = pd.read_parquet(recurring_mapping_path)
 
     # Expand exact events to daily
-    logger.info("Expanding 2026 exact events to daily rows")
+    logger.info(f"Expanding exact events into daily rows for forecast_year={forecast_year}...")
     df_daily_exact = expand_events_to_daily(
         df_exact, start_col="start_date", end_col="end_date", id_col="event_name_ascii"
     )
