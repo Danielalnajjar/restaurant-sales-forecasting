@@ -54,17 +54,17 @@ def run_pipeline(
     dry_run : bool
         If True, runs data prep only without training/forecasting
     """
-    from forecasting.utils.runtime import file_sha256, load_yaml, resolve_config_path
+    from forecasting.utils.runtime import file_sha256, load_config, resolve_config_path
 
     logger.info("=" * 80)
     logger.info("DAILY SALES FORECASTING PIPELINE")
     logger.info("=" * 80)
 
-    # Load configuration with hash
+    # Load configuration with validation and hash
     logger.info("\nResolving config path...")
     resolved_config_path = resolve_config_path(config_path)
     logger.info(f"Loading config from: {resolved_config_path}")
-    config = load_yaml(resolved_config_path)
+    config = load_config(resolved_config_path)
     config_hash = file_sha256(resolved_config_path)
     logger.info(f"Config hash: {config_hash[:8]}...")
 
