@@ -35,7 +35,7 @@ def to_snake_case(text: str) -> str:
 
 def ingest_events_exact(
     input_path: str,
-    output_path: str,
+    output_path: str | None = None,
 ) -> pd.DataFrame:
     """
     Generic ingest for exact events CSV (year-agnostic).
@@ -47,6 +47,10 @@ def ingest_events_exact(
     - event_name, event_name_ascii, category, proximity, start_date, end_date
     """
     logger.info(f"Reading exact events from {input_path}")
+
+    # Default output path if not provided
+    if output_path is None:
+        output_path = "data/processed/events_2026_exact.parquet"
 
     # Read CSV with encoding handling
     try:
