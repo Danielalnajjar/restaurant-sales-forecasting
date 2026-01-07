@@ -127,11 +127,14 @@ def ingest_recurring_event_mapping(
     output_path: str = "data/processed/recurring_event_mapping.parquet",
 ) -> pd.DataFrame:
     """
-    Ingest and normalize recurring event mapping.
+    Ingest and normalize recurring event mapping (year-generic via regex).
+
+    Detects year columns dynamically (start_YYYY, end_YYYY) and validates pairs.
+    Supports any year range (2025-2030+).
 
     Returns DataFrame with columns:
-    - event_family, event_family_ascii, category, proximity,
-      start_2025, end_2025, start_2026, end_2026
+    - event_family, event_family_ascii, category, proximity, recurrence_pattern
+    - start_YYYY, end_YYYY (for each detected year)
     """
     logger.info(f"Reading recurring event mapping from {input_path}")
 
@@ -145,57 +148,52 @@ def ingest_recurring_event_mapping(
     # Normalize column names
     df.columns = [to_snake_case(col) for col in df.columns]
 
-    # --- BEGIN YEAR-GENERIC MAPPING COLUMN PRESERVATION ---
-    df_raw = df  # Rename for clarity
-    year_cols = [c for c in df_raw.columns if re.match(r"^(start|end)_\d{4}$", c)]
+    # Required base columns (no year columns required)
+    required = {"event_family", "category", "proximity", "recurrence_pattern"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"Recurring mapping missing required columns: {sorted(missing)}"
+        )
 
+    # Detect year columns via regex: start_YYYY, end_YYYY
+    _YEAR_COL_RE = re.compile(r"^(start|end)_(\d{4})$")
+    year_cols = [c for c in df.columns if _YEAR_COL_RE.match(c)]
+    years = sorted({int(_YEAR_COL_RE.match(c).group(2)) for c in year_cols})
+
+    if not years:
+        raise ValueError(
+            "Recurring mapping has no year columns. Expected columns like start_2026/end_2026."
+        )
+
+    # Validate start/end pairs and parse datetimes
+    for y in years:
+        s = f"start_{y}"
+        e = f"end_{y}"
+        if s not in df.columns or e not in df.columns:
+            raise ValueError(f"Recurring mapping missing required pair: {s} and {e}")
+
+        df[s] = pd.to_datetime(df[s], errors="coerce")
+        df[e] = pd.to_datetime(df[e], errors="coerce")
+
+    # Normalize categorical fields
+    df["event_family"] = df["event_family"].astype(str).str.strip()
+    df["category"] = df["category"].astype(str).str.strip()
+    df["recurrence_pattern"] = df["recurrence_pattern"].astype(str).str.strip()
+
+    # Create event_family_ascii if missing
+    if "event_family_ascii" not in df.columns:
+        df["event_family_ascii"] = df["event_family"].apply(to_ascii)
+
+    # Select final columns
     base_cols = [
         "event_family",
         "event_family_ascii",
         "category",
         "proximity",
+        "recurrence_pattern",
     ]
-
-    # Check if event_family_ascii exists, if not we'll create it later
-    required_base = ["event_family"]
-    missing_base = [c for c in required_base if c not in df_raw.columns]
-    if missing_base:
-        raise ValueError(f"Recurring mapping missing required columns: {missing_base}")
-
-    # Keep base + all year columns (do NOT drop future years)
-    existing_base = [c for c in base_cols if c in df_raw.columns]
-    df_clean = df_raw[existing_base + year_cols].copy()
-
-    # Create event_family_ascii if missing
-    if "event_family_ascii" not in df_clean.columns:
-        df_clean["event_family_ascii"] = df_clean["event_family"].apply(to_ascii)
-
-    # Fill missing category/proximity with empty string
-    if "category" not in df_clean.columns:
-        df_clean["category"] = ""
-    if "proximity" not in df_clean.columns:
-        df_clean["proximity"] = ""
-
-    # Coerce year columns to datetime
-    for c in year_cols:
-        df_clean[c] = pd.to_datetime(df_clean[c], errors="coerce")
-
-    # Validate dates for all year pairs
-    for year_col in year_cols:
-        if year_col.startswith("start_"):
-            year = year_col.replace("start_", "")
-            end_col = f"end_{year}"
-            if end_col in df_clean.columns:
-                invalid = df_clean[year_col] > df_clean[end_col]
-                if invalid.any():
-                    logger.warning(
-                        f"Found {invalid.sum()} rows with {year_col} > {end_col}. Fixing..."
-                    )
-                    mask = invalid
-                    df_clean.loc[mask, [year_col, end_col]] = df_clean.loc[
-                        mask, [end_col, year_col]
-                    ].values
-    # --- END YEAR-GENERIC MAPPING COLUMN PRESERVATION ---
+    df_clean = df[base_cols + year_cols].copy()
 
     # Remove duplicates
     before_dedup = len(df_clean)
