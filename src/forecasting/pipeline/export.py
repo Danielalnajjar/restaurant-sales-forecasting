@@ -608,10 +608,10 @@ def generate_forecast(
         spike_days_adjusted = int(n_adjusted)
 
     # Per V5.4.3 PHASE 3: Use relative paths in run_log for portability
+    # Per V5.4.8: Removed project_root (absolute path) for full portability
     run_log = {
         "timestamp_utc": datetime.utcnow().isoformat() + "Z",
         "git_commit": get_git_commit(),
-        "project_root": str(root),  # Added for context
         "config_path": _to_relpath(config_path, root) if config_path else "unknown",
         "config_hash": config_hash if config_hash else "unknown",
         "data_through": str(data_through),
