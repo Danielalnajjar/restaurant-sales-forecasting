@@ -37,6 +37,7 @@ def run_pipeline(
     run_backtests: bool = False,
     skip_chronos: bool = False,
     dry_run: bool = False,
+    recompute_uplift_priors: bool = False,
 ):
     """
     Run the full forecasting pipeline.
@@ -53,6 +54,8 @@ def run_pipeline(
         Whether to skip Chronos-2 integration
     dry_run : bool
         If True, runs data prep only without training/forecasting
+    recompute_uplift_priors : bool
+        If True, recomputes event uplift priors from sales history
     """
     from forecasting.utils.runtime import file_sha256, load_config, resolve_config_path
 
@@ -142,14 +145,18 @@ def run_pipeline(
         build_events_daily_forecast(config)
 
         # Step 5: Compute uplift priors
-        logger.info("\n[5/9] Computing event uplift priors...")
-        import pandas as pd
+        # Step 5: Event uplift priors recompute (optional)
+        if recompute_uplift_priors:
+            logger.info("\n[5/9] Computing event uplift priors...")
+            import pandas as pd
 
-        df_sales = pd.read_parquet("data/processed/fact_sales_daily.parquet")
-        ds_max = df_sales["ds"].max().strftime("%Y-%m-%d")
-        df_uplift = compute_event_uplift_priors(ds_max=ds_max)
-        df_uplift.to_parquet("data/processed/event_uplift_priors.parquet", index=False)
-        generate_uplift_report(df_uplift)
+            df_sales = pd.read_parquet("data/processed/fact_sales_daily.parquet")
+            ds_max = df_sales["ds"].max().strftime("%Y-%m-%d")
+            df_uplift = compute_event_uplift_priors(ds_max=ds_max)
+            df_uplift.to_parquet("data/processed/event_uplift_priors.parquet", index=False)
+            generate_uplift_report(df_uplift)
+        else:
+            logger.info("\n[5/9] Skipping event uplift priors recompute (using existing priors)")
 
         # Step 6: Build datasets
         logger.info("\n[6/9] Building supervised datasets and inference features...")
