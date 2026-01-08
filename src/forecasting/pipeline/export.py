@@ -1,6 +1,7 @@
 """Export 2026 forecasts with guardrails and rollups."""
 
 import logging
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -405,8 +406,6 @@ def generate_forecast(
                 save_spike_uplift_log(df_forecast=df_forecast, output_path=str(spike_log_path_slug))
                 # Per V5.4.3 PHASE 4: Write stable pointer as exact copy of slugged log
                 spike_log_path_stable = reports_dir / "spike_uplift_log.csv"
-                import shutil
-
                 shutil.copy2(spike_log_path_slug, spike_log_path_stable)
                 logger.info(f"Copied {spike_log_path_slug.name} to {spike_log_path_stable.name}")
                 logger.info("Spike uplift overlay applied successfully (V5.4.3)")
@@ -476,8 +475,6 @@ def generate_forecast(
                 df_growth_log.to_csv(growth_log_path_slug, index=False)
                 # Per V5.4.3 PHASE 4: Write stable pointer as exact copy
                 growth_log_path_stable = reports_dir / "growth_calibration_log.csv"
-                import shutil
-
                 shutil.copy2(growth_log_path_slug, growth_log_path_stable)
                 logger.info(f"Growth calibration log saved: {growth_log_path_slug} (V5.4.3)")
 
@@ -558,8 +555,6 @@ def generate_forecast(
                 df_monthly_scales.to_csv(monthly_scales_path_slug, index=False)
                 # Per V5.4.3 PHASE 4: Write stable pointer as exact copy
                 monthly_scales_path_stable = reports_dir / "monthly_calibration_scales.csv"
-                import shutil
-
                 shutil.copy2(monthly_scales_path_slug, monthly_scales_path_stable)
                 logger.info(
                     f"Monthly calibration scales saved: {monthly_scales_path_slug} (V5.4.3)"
