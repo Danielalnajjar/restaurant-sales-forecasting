@@ -86,6 +86,9 @@ def run_pipeline(
         f"Forecast period: {forecast_start} to {forecast_end} (year: {forecast_year}, slug: {slug})"
     )
 
+    # Get paths dict for config lookups (STEP 2: canonical + legacy fallback)
+    paths = config.get("paths", {}) if isinstance(config, dict) else {}
+
     # Resolve year-based raw input paths from templates (with fallback)
     events_exact_path = resolve_year_path(
         config,
@@ -121,6 +124,41 @@ def run_pipeline(
     logger.info(f"Raw hours overrides path: {hours_overrides_path}")
     logger.info(f"Raw recurring mapping path: {recurring_mapping_path}")
 
+    # STEP 3: Resolve processed artifact output paths for the forecast year
+    # Hours calendar paths
+    processed_hours_history_path = (
+        paths.get("processed_hours_history")
+        or "data/processed/hours_calendar_history.parquet"
+    )
+    
+    hours_forecast_template = paths.get("processed_hours_forecast_template")
+    processed_hours_forecast_path = (
+        hours_forecast_template.format(year=forecast_year)
+        if isinstance(hours_forecast_template, str) and "{year}" in hours_forecast_template
+        else (
+            paths.get("processed_hours_forecast")
+            or paths.get("processed_hours_2026")
+            or f"data/processed/hours_calendar_{forecast_year}.parquet"
+        )
+    )
+    
+    # Events daily paths
+    processed_events_history_path = (
+        paths.get("processed_events_history")
+        or "data/processed/features/events_daily_history.parquet"
+    )
+    
+    events_forecast_template = paths.get("processed_events_forecast_template")
+    processed_events_forecast_path = (
+        events_forecast_template.format(year=forecast_year)
+        if isinstance(events_forecast_template, str) and "{year}" in events_forecast_template
+        else (
+            paths.get("processed_events_forecast")
+            or paths.get("processed_events_2026")
+            or f"data/processed/features/events_daily_{forecast_year}.parquet"
+        )
+    )
+
     try:
         # Step 1: Ingest sales
         logger.info("\n[1/9] Ingesting sales data...")
@@ -128,11 +166,12 @@ def run_pipeline(
 
         # Step 2: Build hours calendars
         logger.info("\n[2/9] Building hours calendars...")
+        build_hours_calendar_history(output_path=processed_hours_history_path)
         build_hours_calendar_forecast(
             calendar_path=str(hours_calendar_path),
             overrides_path=str(hours_overrides_path),
+            output_path=processed_hours_forecast_path,
         )
-        build_hours_calendar_history()
 
         # Step 3: Ingest events
         logger.info("\n[3/9] Ingesting and normalizing events...")
@@ -141,8 +180,18 @@ def run_pipeline(
 
         # Step 4: Build event features
         logger.info("\n[4/9] Building event daily features...")
-        build_events_daily_history()
-        build_events_daily_forecast(config)
+        build_events_daily_history(
+            config=config,
+            sales_history_path=paths.get("processed_sales") or "data/processed/fact_sales_daily.parquet",
+            recurring_mapping_path=paths.get("processed_recurring_events") or "data/processed/recurring_event_mapping.parquet",
+            output_path=processed_events_history_path,
+        )
+        build_events_daily_forecast(
+            config=config,
+            exact_events_path=paths.get("processed_events_2026_exact") or "data/processed/events_2026_exact.parquet",
+            recurring_mapping_path=paths.get("processed_recurring_events") or "data/processed/recurring_event_mapping.parquet",
+            output_path=processed_events_forecast_path,
+        )
 
         # Step 5: Compute uplift priors
         # Step 5: Event uplift priors recompute (optional)
