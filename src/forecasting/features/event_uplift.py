@@ -15,12 +15,12 @@ def _baseline_year_from_sales(df_sales: pd.DataFrame) -> int:
     Determine baseline year for priors from sales history.
     If the latest date is Dec 31, that year is complete.
     Otherwise baseline year = latest_year - 1.
-    
+
     Parameters
     ----------
     df_sales : pd.DataFrame
         Sales history with 'ds' column
-    
+
     Returns
     -------
     int
@@ -120,7 +120,9 @@ def compute_event_uplift_priors(
     start_col = f"start_{baseline_year}"
     end_col = f"end_{baseline_year}"
 
-    logger.info(f"Using baseline_year={baseline_year} for uplift priors (columns: {start_col}, {end_col})")
+    logger.info(
+        f"Using baseline_year={baseline_year} for uplift priors (columns: {start_col}, {end_col})"
+    )
 
     # Validate required columns exist
     missing = [c for c in [start_col, end_col] if c not in df_events.columns]

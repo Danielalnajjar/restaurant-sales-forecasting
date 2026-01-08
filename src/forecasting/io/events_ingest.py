@@ -155,9 +155,7 @@ def ingest_recurring_event_mapping(
     required = {"event_family"}
     missing = required - set(df.columns)
     if missing:
-        raise ValueError(
-            f"Recurring mapping missing required columns: {sorted(missing)}"
-        )
+        raise ValueError(f"Recurring mapping missing required columns: {sorted(missing)}")
 
     # Add optional columns if missing
     if "category" not in df.columns:

@@ -127,10 +127,9 @@ def run_pipeline(
     # STEP 3: Resolve processed artifact output paths for the forecast year
     # Hours calendar paths
     processed_hours_history_path = (
-        paths.get("processed_hours_history")
-        or "data/processed/hours_calendar_history.parquet"
+        paths.get("processed_hours_history") or "data/processed/hours_calendar_history.parquet"
     )
-    
+
     hours_forecast_template = paths.get("processed_hours_forecast_template")
     processed_hours_forecast_path = (
         hours_forecast_template.format(year=forecast_year)
@@ -141,13 +140,13 @@ def run_pipeline(
             or f"data/processed/hours_calendar_{forecast_year}.parquet"
         )
     )
-    
+
     # Events daily paths
     processed_events_history_path = (
         paths.get("processed_events_history")
         or "data/processed/features/events_daily_history.parquet"
     )
-    
+
     events_forecast_template = paths.get("processed_events_forecast_template")
     processed_events_forecast_path = (
         events_forecast_template.format(year=forecast_year)
@@ -182,14 +181,18 @@ def run_pipeline(
         logger.info("\n[4/9] Building event daily features...")
         build_events_daily_history(
             config=config,
-            sales_history_path=paths.get("processed_sales") or "data/processed/fact_sales_daily.parquet",
-            recurring_mapping_path=paths.get("processed_recurring_events") or "data/processed/recurring_event_mapping.parquet",
+            sales_history_path=paths.get("processed_sales")
+            or "data/processed/fact_sales_daily.parquet",
+            recurring_mapping_path=paths.get("processed_recurring_events")
+            or "data/processed/recurring_event_mapping.parquet",
             output_path=processed_events_history_path,
         )
         build_events_daily_forecast(
             config=config,
-            exact_events_path=paths.get("processed_events_2026_exact") or "data/processed/events_2026_exact.parquet",
-            recurring_mapping_path=paths.get("processed_recurring_events") or "data/processed/recurring_event_mapping.parquet",
+            exact_events_path=paths.get("processed_events_2026_exact")
+            or "data/processed/events_2026_exact.parquet",
+            recurring_mapping_path=paths.get("processed_recurring_events")
+            or "data/processed/recurring_event_mapping.parquet",
             output_path=processed_events_forecast_path,
         )
 
