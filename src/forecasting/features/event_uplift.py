@@ -10,6 +10,32 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def _baseline_year_from_sales(df_sales: pd.DataFrame) -> int:
+    """
+    Determine baseline year for priors from sales history.
+    If the latest date is Dec 31, that year is complete.
+    Otherwise baseline year = latest_year - 1.
+    
+    Parameters
+    ----------
+    df_sales : pd.DataFrame
+        Sales history with 'ds' column
+    
+    Returns
+    -------
+    int
+        Baseline year
+    """
+    if "ds" not in df_sales.columns:
+        raise ValueError("df_sales must contain a 'ds' column")
+    max_date = pd.to_datetime(df_sales["ds"]).max()
+    if pd.isna(max_date):
+        raise ValueError("df_sales['ds'] contains no valid dates")
+    if max_date.month == 12 and max_date.day == 31:
+        return int(max_date.year)
+    return int(max_date.year) - 1
+
+
 def compute_weekday_baseline(
     df_sales: pd.DataFrame, target_ds: pd.Timestamp, lookback_weeks: int = 8
 ) -> float:
@@ -89,40 +115,36 @@ def compute_event_uplift_priors(
     # Load recurring event mapping
     df_events = pd.read_parquet(recurring_mapping_path)
 
+    # STEP 4: Determine baseline year dynamically from sales data
+    baseline_year = _baseline_year_from_sales(df_sales)
+    start_col = f"start_{baseline_year}"
+    end_col = f"end_{baseline_year}"
+
+    logger.info(f"Using baseline_year={baseline_year} for uplift priors (columns: {start_col}, {end_col})")
+
+    # Validate required columns exist
+    missing = [c for c in [start_col, end_col] if c not in df_events.columns]
+    if missing:
+        raise ValueError(
+            f"Recurring mapping missing required columns for baseline_year={baseline_year}: {missing}. "
+            f"Available columns: {sorted(df_events.columns.tolist())}"
+        )
+
     # Compute uplift for each event family
     uplift_results = []
 
     for _, event in df_events.iterrows():
         event_family = event["event_family_ascii"]
 
-        # Try 2025 window first
-        start_2025 = event["start_2025"]
-        end_2025 = event["end_2025"]
+        # Get event window for baseline year
+        start_date = event[start_col]
+        end_date = event[end_col]
 
-        event_days_2025 = []
-        if pd.notna(start_2025) and pd.notna(end_2025):
-            # Get event days in 2025 that are <= ds_max
-            event_date_range = pd.date_range(start=start_2025, end=end_2025, freq="D")
-            event_days_2025 = [d for d in event_date_range if d <= ds_max_ts]
-
-        # Try 2024 fallback if 2025 has no coverage
-        event_days_2024 = []
-        if len(event_days_2025) == 0:
-            # Shift to 2024
-            if pd.notna(start_2025) and pd.notna(end_2025):
-                try:
-                    start_2024 = start_2025.replace(year=2024)
-                    end_2024 = end_2025.replace(year=2024)
-                    event_date_range_2024 = pd.date_range(start=start_2024, end=end_2024, freq="D")
-                    event_days_2024 = [d for d in event_date_range_2024 if d <= ds_max_ts]
-                except Exception as e:
-                    logger.debug(
-                        f"Skipping 2024 dates for {event_family} (likely leap year issue): {e}"
-                    )
-                    pass
-
-        # Combine 2025 and 2024 event days
-        event_days = event_days_2025 + event_days_2024
+        event_days = []
+        if pd.notna(start_date) and pd.notna(end_date):
+            # Get event days in baseline year that are <= ds_max
+            event_date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+            event_days = [d for d in event_date_range if d <= ds_max_ts]
 
         if len(event_days) == 0:
             # No data available
