@@ -180,8 +180,10 @@ def run_pipeline(
         # Step 4: Build event features
         logger.info("\n[4/9] Building event daily features...")
         build_events_daily_history(
-            sales_fact_path=paths.get("processed_sales") or "data/processed/fact_sales_daily.parquet",
-            recurring_mapping_path=paths.get("processed_recurring_events") or "data/processed/recurring_event_mapping.parquet",
+            sales_fact_path=paths.get("processed_sales")
+            or "data/processed/fact_sales_daily.parquet",
+            recurring_mapping_path=paths.get("processed_recurring_events")
+            or "data/processed/recurring_event_mapping.parquet",
             output_path=processed_events_history_path,
         )
         build_events_daily_forecast(
